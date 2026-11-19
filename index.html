@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#101A32">
+    <meta name="description" content="Snowdon Towers. A scroll-controlled architectural study from plan to exploded axonometric.">
+    <link rel="icon" href="data:,">
+    <title>Snowdon Towers — Architecture in Motion</title>
+  </head>
+  <body>
+    <main id="sequence" aria-label="Snowdon Towers 可滚动建筑三维样机">
+      <section class="stage" aria-label="建筑三维舞台">
+        <div class="atmosphere" aria-hidden="true"></div>
+        <div id="scene" role="img" aria-label="Snowdon Towers 建筑模型"></div>
+        <div class="stage-grain" aria-hidden="true"></div>
+        <div class="folio-frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        <div class="drawing-sheet" aria-hidden="true">
+          <div class="drawing-sheet__top"><span>SNOWDON TOWERS</span><span>SITE PLAN</span></div>
+          <div class="drawing-sheet__id"><span>建筑场地总平面</span><strong>C101</strong></div>
+        </div>
+        <div class="site-pin" aria-hidden="true"><i></i><span>SNOWDON TOWERS</span></div>
+        <header class="masthead">
+          <p>Architecture in Motion</p>
+          <h1>Snowdon <em>Towers</em></h1>
+        </header>
+        <div class="viewstamp" aria-hidden="true">
+          <span class="viewstamp__index">ST / ARCH</span>
+          <span id="view-type">C101 / SITE PLAN</span>
+        </div>
+        <nav class="scale" aria-label="滚动动画阶段">
+          <button type="button" data-stage="0" aria-label="00 场地"><span>00</span><i></i></button>
+          <button type="button" data-stage="1" aria-label="01 聚焦"><span>01</span><i></i></button>
+          <button type="button" data-stage="2" aria-label="02 生长"><span>02</span><i></i></button>
+          <button type="button" data-stage="3" aria-label="03 实体"><span>03</span><i></i></button>
+          <button type="button" data-stage="4" aria-label="04 屋顶景观"><span>04</span><i></i></button>
+          <button type="button" data-stage="5" aria-label="05 环视"><span>05</span><i></i></button>
+          <button type="button" data-stage="6" aria-label="06 解构"><span>06</span><i></i></button>
+        </nav>
+        <div id="annotations" aria-hidden="true">
+          <div class="callout"><i></i><span></span></div>
+          <div class="callout"><i></i><span></span></div>
+          <div class="callout"><i></i><span></span></div>
+        </div>
+        <div class="caption">
+          <div class="caption__head"><span id="phase-index">00</span><span id="phase-label">场地</span></div>
+          <p id="phase-note">从道路、地形与地块读起</p>
+        </div>
+        <div class="transport">
+          <div class="transport__hint"><span class="transport__wheel" aria-hidden="true"></span><span>滚动推进 · 上滑回退</span></div>
+          <div class="transport__time"><span id="percent">00</span><span>%</span></div>
+          <div class="transport__track" aria-hidden="true"><i id="progress"></i></div>
+        </div>
+        <div id="loading" class="loading" role="status">正在装载建筑几何…</div>
+      </section>
+      <div class="scroll-space" aria-hidden="true"></div>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

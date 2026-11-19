@@ -1,0 +1,57 @@
+# Dependencies, builds, and local working files
+node_modules/
+dist/
+build/
+coverage/
+.vite/
+.cache/
+.tmp/
+tmp/
+/work/
+*.log
+*.tsbuildinfo
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Local settings and credentials
+.env
+.env.*
+!.env.example
+.envrc
+.npmrc
+.pypirc
+.netrc
+.codex/
+.claude/
+.openai/
+.vscode/
+.idea/
+*.local
+*.local.*
+credentials.json
+secrets.json
+*.key
+*.pem
+*.pfx
+*.p12
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Original Revit models and Blender backups
+*.[Rr][Vv][Tt]
+*.[Rr][Vv][Tt].*
+*.blend[0-9]*
+
+# Keep the screenshots for the current snapshot
+/previews/*
+!/previews/00-C101.png
+!/previews/01-Focus.png
+!/previews/02-Rise.png
+!/previews/03-Model.png
+!/previews/04-Garden.png
+!/previews/04-Garden-mobile.png
+!/previews/05-Orbit.png
+!/previews/06-Exploded.png
