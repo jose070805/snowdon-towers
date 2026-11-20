@@ -7,11 +7,11 @@ const smooth = THREE.MathUtils.smoothstep;
 const solid = { value: 1 };
 const plantSeed = (id) => ((id * 73) % 101) / 101;
 
-function meshLayer(entry, scene, asSurface) {
+function meshLayer(entry, scene, asSurface, presentation) {
   const group = new THREE.Group();
   scene.add(group);
   const pointData = Float32Array.from(entry.positions);
-  const material = createFinish(entry.kind, solid);
+  const material = createFinish(entry.kind, solid, undefined, presentation);
   const mesh = new THREE.Mesh(meshGeometry(pointData), material);
   group.add(mesh);
   let xmin = Infinity, xmax = -Infinity, base = Infinity;
@@ -31,27 +31,28 @@ function meshLayer(entry, scene, asSurface) {
   line.material.opacity = .30;
   line.renderOrder = 5;
   group.add(line);
-  return { ...entry, group, mesh, base };
+  return { ...entry, group, mesh, base, line };
 }
 
-function makePlants(plants, scene) {
+function makePlants(plants, scene, presentation) {
   const pair = new THREE.IcosahedronGeometry(1, 2);
   const shell = pair.clone();
   shell.scale(1.047, 1.04, 1.047);
   const stem = new THREE.CylinderGeometry(.65, 1, 1, 6);
   const count = plants.reduce((sum, item) => sum + (item.kind === 'tree' ? 3 : 1), 0);
-  const volumes = new THREE.InstancedMesh(pair, createFinish('foliage', solid), count);
+  const volumes = new THREE.InstancedMesh(pair, createFinish('foliage', solid, undefined, presentation), count);
   const outline = new THREE.InstancedMesh(shell, new THREE.MeshBasicMaterial({
     side: THREE.BackSide, color: '#efe8d7', transparent: true, opacity: .76, depthWrite: false,
   }), count);
-  const stems = new THREE.InstancedMesh(stem, createFinish('stem', solid), plants.filter((p) => p.kind === 'tree').length);
+  const stems = new THREE.InstancedMesh(stem, createFinish('stem', solid, undefined, presentation), plants.filter((p) => p.kind === 'tree').length);
   for (const instanced of [volumes, outline, stems]) {
     instanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     instanced.frustumCulled = false;
     scene.add(instanced);
   }
   const form = new THREE.Object3D();
-  return (progress, offset) => {
+  return (progress, offset, lineVisibility) => {
+    outline.material.opacity = .76 * lineVisibility;
     let volumeIndex = 0, stemIndex = 0;
     for (const item of plants) {
       const [x, base, z] = item.at;
@@ -93,23 +94,25 @@ function makePlants(plants, scene) {
   };
 }
 
-export async function makeLandscape(scene) {
+export async function makeLandscape(scene, drawing) {
   const response = await fetch(gardenUrl);
   if (!response.ok) throw new Error(`Landscape request returned ${response.status}`);
   const stream = response.body.pipeThrough(new DecompressionStream('gzip'));
   const garden = await new Response(stream).json();
-  const surfaces = garden.surfaces.filter(({ kind }) => kind !== 'planter').map((entry) => meshLayer(entry, scene, true));
+  const presentation = { drawing };
+  const surfaces = garden.surfaces.filter(({ kind }) => kind !== 'planter').map((entry) => meshLayer(entry, scene, true, presentation));
   const elevatedDetails = [
     ...garden.surfaces.filter(({ kind }) => kind === 'planter'),
     ...garden.details,
-  ].map((entry) => meshLayer(entry, scene, false));
-  const drawPlants = makePlants(garden.plants, scene);
+  ].map((entry) => meshLayer(entry, scene, false, presentation));
+  const drawPlants = makePlants(garden.plants, scene, presentation);
   const ink = new THREE.Color('#e6b464');
   const surfaceEdge = new THREE.Color('#b0a79a');
   const sequenceOffset = { west: 0, center: .009, east: .017 };
 
   return {
     apply(progress, offset) {
+      const lineVisibility = 1 - drawing.value * .90;
       for (const { group, mesh, pencil, band, kind, region } of surfaces) {
         const shift = sequenceOffset[region];
         const draw = smooth(progress, .603 + shift, .644 + shift);
@@ -121,9 +124,10 @@ export async function makeLandscape(scene) {
         mesh.visible = spread > 0;
         mesh.material.uniforms.spread.value.z = spread;
         pencil.lines.material.color.copy(ink).lerp(surfaceEdge, spread);
-        pencil.apply(draw, THREE.MathUtils.lerp(.94, .48, spread));
+        pencil.apply(draw, THREE.MathUtils.lerp(.94, .48, spread) * lineVisibility);
       }
       for (const entry of elevatedDetails) {
+        entry.line.material.opacity = .30 * lineVisibility;
         const start = entry.kind === 'planter' ? .664 + sequenceOffset[entry.region] : .736 + plantSeed(entry.ids[0]) * .024;
         const height = smooth(progress, start, start + .039);
         const delta = offset(entry.band);
@@ -131,7 +135,7 @@ export async function makeLandscape(scene) {
         entry.group.scale.y = Math.max(.0001, height);
         entry.group.position.set(delta.x, delta.y + entry.base * (1 - height), delta.z);
       }
-      return drawPlants(progress, offset);
+      return drawPlants(progress, offset, lineVisibility);
     },
   };
 }

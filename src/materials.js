@@ -44,6 +44,8 @@ const fragment = /* glsl */`
   uniform float kind;
   uniform float solid;
   uniform float lamp;
+  uniform float drawing;
+  uniform float shell;
   uniform vec3 spread;
   varying vec3 sitePosition;
   varying vec3 worldPosition;
@@ -101,12 +103,13 @@ const fragment = /* glsl */`
     draft *= 1. - hatch * .16;
     vec3 result = mix(draft, ink, solid);
     result *= .977 + mixedGrain;
-    gl_FragColor = vec4(result, 1.);
+    result = mix(result, vec3(.014, .023, .041), drawing * .90);
+    gl_FragColor = vec4(result, 1. - shell * .79);
     #include <colorspace_fragment>
   }
 `;
 
-export function createFinish(name, solid, lamp = { value: 1 }) {
+export function createFinish(name, solid, lamp = { value: 1 }, presentation = {}) {
   const [color, kind] = finishes[name] ?? finishes.ivory;
   return new THREE.ShaderMaterial({
     uniforms: {
@@ -114,6 +117,8 @@ export function createFinish(name, solid, lamp = { value: 1 }) {
       endColor: { value: new THREE.Color(color) },
       solid,
       lamp,
+      drawing: presentation.drawing ?? { value: 0 },
+      shell: presentation.shell ?? { value: 0 },
       spread: { value: new THREE.Vector3(0, 1, 1) },
       kind: { value: kind },
     },

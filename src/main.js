@@ -5,7 +5,9 @@ import { DrawnLines, loadGeometry, meshGeometry, segmentsFrom } from './geometry
 import { createFinish, makeCursor, makeGround } from './materials.js';
 import { makeSitePlan } from './site-plan.js';
 import { makeLandscape } from './landscape.js';
+import { earlySequenceScale, makeSectionDatums, makeSouthElevations, streetSequence } from './street-sequence.js';
 import './style.css';
+import './street-sequence.css';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -20,9 +22,14 @@ const chapters = [
   { id: '02', label: '生长', note: '墙体与楼板沿原坐标升起', view: 'RAISING', start: .285, stop: .471 },
   { id: '03', label: '实体', note: '拱窗与斜向幕墙显现', view: 'AXONOMETRIC', start: .485, stop: .584 },
   { id: '04', label: '屋顶景观', note: '从退台边线到空中花园', view: 'G106 / ROOF LANDSCAPE', start: .600, stop: .810 },
-  { id: '05', label: '环视', note: '从屋顶回到临街立面', view: 'ORBIT', start: .825, stop: .898 },
-  { id: '06', label: '解构', note: '屋顶、楼板与临街立面分离', view: 'EXPLODED AXONOMETRIC', start: .912, stop: .999 },
+  { id: '05', label: '降至街道', note: '沿街看向历史拱窗', view: 'SOUTH / STREET', start: .653, stop: .768 },
+  { id: '06', label: '立面对照', note: '既有与拟建南立面沿共同轴网叠合', view: 'A200 → A201 / SOUTH', start: .776, stop: .820 },
+  { id: '07', label: '分层分析', note: '从 A301 标高参照进入分组解构', view: 'A301 / SECTION DATUMS', start: .875, stop: .999 },
 ];
+for (const chapter of chapters.slice(0, 5)) {
+  chapter.start *= earlySequenceScale;
+  chapter.stop *= earlySequenceScale;
+}
 
 const controls = [...document.querySelectorAll('[data-stage]')];
 const callouts = [...document.querySelectorAll('.callout')];
@@ -39,6 +46,9 @@ const gardenLabels = [
   { name: '屋顶退台', at: [-16, 53, 22], kind: 'roof', floor: 4, side: 'right' },
   { name: '木平台与花架', at: [74, 66.25, -24], kind: 'roof', floor: 6, side: 'right' },
   { name: '开敞前庭', at: [-62, 2.1, 28], kind: 'slab', floor: 0, side: 'left' },
+];
+const streetLabels = [
+  { name: 'Retained frontage', at: [45, 56.6, 39], kind: 'heritage', floor: 2, side: 'right', handwritten: true },
 ];
 const queries = Object.fromEntries(
   ['view-type', 'phase-index', 'phase-label', 'phase-note', 'percent', 'progress', 'scene', 'loading']
@@ -99,13 +109,15 @@ function guideLines() {
   return segmentsFrom(values);
 }
 
-function createGroups(model, scene, lamp) {
+function createGroups(model, scene, lamp, drawing, shell) {
   const groups = new Map();
   const solid = { value: 0 };
   const materials = new Map();
-  const lineMaterials = ['mass', 'trim'].map((grade) => new THREE.LineBasicMaterial({
-    name: grade, color: 0xd9a34c, transparent: true, opacity: .65, depthWrite: false,
+  const shellMaterials = [];
+  const lineMaterials = Array.from({ length: 4 }, () => new THREE.LineBasicMaterial({
+    color: 0xd9a34c, transparent: true, opacity: .65, depthWrite: false,
   }));
+  const isShell = (kind) => kind === 'heritage' || kind === 'envelope';
   function getGroup(kind, floor) {
     const key = `${kind}-${floor}`;
     if (!groups.has(key)) {
@@ -120,20 +132,29 @@ function createGroups(model, scene, lamp) {
   }
   for (const part of model.meta.parts) {
     const { node, pivot } = getGroup(part.group, part.floor);
-    if (!materials.has(part.finish)) materials.set(part.finish, createFinish(part.finish, solid, lamp));
+    const skin = isShell(part.group);
+    const materialKey = `${skin}-${part.finish}`;
+    if (!materials.has(materialKey)) {
+      const material = createFinish(part.finish, solid, lamp, { drawing, shell: skin ? shell : undefined });
+      if (skin) {
+        material.forceSinglePass = true;
+        shellMaterials.push(material);
+      }
+      materials.set(materialKey, material);
+    }
     const geometry = meshGeometry(model.read(part.range, pivot));
-    const mesh = new THREE.Mesh(geometry, materials.get(part.finish));
+    const mesh = new THREE.Mesh(geometry, materials.get(materialKey));
     mesh.name = part.finish;
     node.add(mesh);
   }
   for (const edge of model.meta.edges) {
     const { node, pivot } = getGroup(edge.group, edge.floor);
-    const material = lineMaterials[edge.grade === 'mass' ? 0 : 1];
+    const material = lineMaterials[(isShell(edge.group) ? 2 : 0) + (edge.grade === 'mass' ? 0 : 1)];
     const lines = new THREE.LineSegments(meshGeometry(model.read(edge.range, pivot)), material);
     lines.renderOrder = 3;
     node.add(lines);
   }
-  return { groups: [...groups.values()], solid, lineMaterials };
+  return { groups: [...groups.values()], solid, lineMaterials, shellMaterials };
 }
 
 function motionFor(group, progress, explosion) {
@@ -159,34 +180,38 @@ function motionFor(group, progress, explosion) {
   return result;
 }
 
-function pose(camera, progress, width, height, site) {
+function pose(camera, progress, width, height, site, street) {
   const mobile = width < 730;
   const push = smooth(progress, .116, .282);
   const tilt = smooth(progress, .284, .477);
   const orbit = smooth(progress, .466, .603);
   const garden = smooth(progress, .592, .752) * (1 - smooth(progress, .816, .913));
   const turn = smooth(progress, .816, .913);
-  const explosion = smooth(progress, .910, .995);
-  const phi = mix(.018, 1.065, tilt) - garden * .247 + explosion * .065;
-  const bearing = mix(site.bearing, mix(-.045, -.66, tilt), push) + orbit * .94
+  const { approach, headOn, explosion } = street;
+  const axonPhi = mix(.018, 1.065, tilt) - garden * .247 + explosion * .065;
+  const axonBearing = mix(site.bearing, mix(-.045, -.66, tilt), push) + orbit * .94
     - garden * .51 + turn * .285 - explosion * .31;
+  const phi = mix(axonPhi, mix(1.74, Math.PI / 2, headOn), approach);
+  const bearing = mix(axonBearing, mix(.26, 0, headOn), approach);
   const focus = new THREE.Vector3(
     mix(site.x, mix(1, -1, tilt), push) + 9 * explosion,
     (33.5 + 8 * garden) * tilt + 43 * explosion,
     mix(site.z, 1, push) - 4 * garden + 11 * explosion,
   );
+  focus.lerp(new THREE.Vector3(1, 38, 15), approach);
+  const distance = mix(480, 154, approach);
   camera.position.set(
-    focus.x + Math.sin(phi) * Math.sin(bearing) * 480,
-    focus.y + Math.cos(phi) * 480,
-    focus.z + Math.sin(phi) * Math.cos(bearing) * 480,
+    focus.x + Math.sin(phi) * Math.sin(bearing) * distance,
+    focus.y + Math.cos(phi) * distance,
+    focus.z + Math.sin(phi) * Math.cos(bearing) * distance,
   );
   camera.lookAt(focus);
   const ratio = width / height;
-  const modelSpan = mix(site.width * (mobile ? .84 : 1), mix(268, 256, tilt), push) + explosion * 17;
-  const heightSpan = mix(site.height, mix(145, 171, tilt), push) + explosion * 63;
+  const modelSpan = mix(mix(site.width * (mobile ? .84 : 1), mix(268, 256, tilt), push) + explosion * 17, 246, approach);
+  const heightSpan = mix(mix(site.height, mix(145, 171, tilt), push) + explosion * 63, mobile ? 105 : 139, approach);
   const spanWidth = Math.max(modelSpan * (mobile ? .98 : 1), heightSpan * ratio);
   const spanHeight = spanWidth / ratio;
-  const translateX = mobile ? mix(.027, .045, push) : mix(.089, .073, push) - explosion * .012;
+  const translateX = mobile ? mix(mix(.027, .045, push), .025, approach) : mix(.089, .073, push) - explosion * .012;
   const translateY = mobile ? -.016 : mix(.025, -.065, push) + tilt * .076 + explosion * .005;
   camera.left = (-.5 - translateX) * spanWidth;
   camera.right = (.5 - translateX) * spanWidth;
@@ -194,17 +219,18 @@ function pose(camera, progress, width, height, site) {
   camera.bottom = (-.5 - translateY) * spanHeight;
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld();
-  return { explosion, tilt, spanWidth, push, garden };
+  return { tilt, spanWidth, push };
 }
 
-function updateCallouts(camera, width, height, progress, explosion) {
-  const dAlpha = smooth(progress, .934, .982);
-  const cAlpha = smooth(progress, .509, .563) * (1 - smooth(progress, .579, .625))
-    + smooth(progress, .850, .888) * (1 - smooth(progress, .900, .924));
-  const enlarged = progress >= .923;
+function updateCallouts(camera, width, height, progress, position, street) {
+  const { explosion, drawing } = street;
+  const dAlpha = smooth(position, .947, .982);
+  const cAlpha = smooth(progress, .509, .563) * (1 - smooth(progress, .579, .625));
+  const enlarged = position >= .936;
+  const atStreet = position >= .778 && position < .876;
   const gardens = progress >= .699 && progress < .848;
-  const entries = enlarged ? explodedLabels : gardens ? gardenLabels : assembledLabels;
-  const alpha = enlarged ? dAlpha : gardens
+  const entries = enlarged ? explodedLabels : atStreet ? streetLabels : gardens ? gardenLabels : assembledLabels;
+  const alpha = enlarged ? dAlpha : atStreet ? drawing * (1 - smooth(position, .819, .833)) : gardens
     ? smooth(progress, .752, .791) * (1 - smooth(progress, .815, .848))
     : cAlpha;
   const project = new THREE.Vector3();
@@ -225,6 +251,7 @@ function updateCallouts(camera, width, height, progress, explosion) {
     const py = (.5 - project.y * .5) * height;
     const anchor = item.side === 'left' ? '-100%' : '0%';
     label.dataset.side = item.side;
+    label.classList.toggle('technical-handwriting', Boolean(item.handwritten));
     label.lastElementChild.textContent = item.name;
     label.style.transform = `translate(${Math.round(px)}px,${Math.round(py)}px) translate(${anchor},-50%)`;
     label.style.opacity = px > 100 && px < width - 86 && py > 48 && py < height - 100 ? alpha : 0;
@@ -233,7 +260,7 @@ function updateCallouts(camera, width, height, progress, explosion) {
 
 let previousChapter = -1;
 let previousPercent = -1;
-function updateEditorial(progress) {
+function updateEditorial(progress, base, street, width) {
   const position = Math.round(progress * 100);
   if (position !== previousPercent) {
     previousPercent = position;
@@ -251,8 +278,12 @@ function updateEditorial(progress) {
     queries['view-type'].textContent = chapter.view;
     controls.forEach((control, index) => control.setAttribute('aria-current', index === era ? 'step' : 'false'));
   }
-  masthead.style.transform = `scale(${mix(.715, .515, smooth(progress, .135, .420))})`;
-  stageElement.style.setProperty('--title-opacity', 1 - .23 * smooth(progress, .11, .258) * (1 - smooth(progress, .31, .43)));
+  const titleScale = mix(.715, .515, smooth(base, .135, .420));
+  masthead.style.transform = `scale(${mix(titleScale, width < 730 ? .46 : .39, street.approach)})`;
+  const title = 1 - .23 * smooth(base, .11, .258) * (1 - smooth(base, .31, .43));
+  stageElement.style.setProperty('--title-opacity', title * (1 - street.approach * .49));
+  if (era === 7 && street.explosion >= .07) queries['view-type'].textContent = 'EXPLODED / DISPLAY GROUPS';
+  else if (era === 7) queries['view-type'].textContent = chapters[era].view;
 }
 
 async function initialize() {
@@ -264,12 +295,16 @@ async function initialize() {
   queries.scene.append(renderer.domElement);
 
   const model = await loadGeometry();
-  const [site, landscape] = await Promise.all([
+  const drawing = { value: 0 };
+  const shell = { value: 0 };
+  const [site, landscape, elevations] = await Promise.all([
     makeSitePlan(scene, model.read(model.meta.plan.shell)),
-    makeLandscape(scene),
+    makeLandscape(scene, drawing),
+    makeSouthElevations(scene),
   ]);
   const lamp = { value: 0 };
-  const { groups, solid, lineMaterials } = createGroups(model, scene, lamp);
+  const { groups, solid, lineMaterials, shellMaterials } = createGroups(model, scene, lamp, drawing, shell);
+  const sectionDatums = makeSectionDatums(scene, stageElement);
   const ground = makeGround();
   scene.add(ground);
 
@@ -302,30 +337,44 @@ async function initialize() {
   function render() {
     pendingFrame = 0;
     previousPosition = position;
-    const p = motionPreference.matches ? chapters[chapters.findLastIndex((chapter) => position + .0001 >= chapter.start)].stop : position;
-    const { explosion, tilt, spanWidth, push } = pose(camera, p, width, height, site.focus);
+    const storyPosition = motionPreference.matches ? chapters[chapters.findLastIndex((chapter) => position + .0001 >= chapter.start)].stop : position;
+    const p = Math.min(storyPosition / earlySequenceScale, .913);
+    const street = streetSequence(storyPosition);
+    const { explosion } = street;
+    const { tilt, spanWidth, push } = pose(camera, p, width, height, site.focus, street);
     const entity = smooth(p, .482, .577);
     solid.value = entity;
     lamp.value = smooth(p, .776, .810);
+    drawing.value = street.drawing;
+    shell.value = street.shell * (1 - explosion * .52);
+    const shellFades = shell.value > .001;
+    for (const material of shellMaterials) {
+      material.transparent = shellFades;
+      material.depthWrite = !shellFades;
+    }
     stageElement.style.setProperty('--entity', entity);
-    lineMaterials[0].color.copy(draftColor).lerp(inkColor, entity);
-    lineMaterials[1].color.copy(draftColor).lerp(trimColor, entity);
-    lineMaterials[0].opacity = mix(.75, .51, entity);
-    lineMaterials[1].opacity = mix(.55, .36, entity);
+    lineMaterials.forEach((material, i) => {
+      const major = i % 2 === 0;
+      const ink = major ? inkColor : trimColor;
+      const tone = 1 - drawing.value * .89;
+      const cover = i >= 2 ? 1 - shell.value * .76 : 1;
+      material.color.copy(draftColor).lerp(ink, entity);
+      material.opacity = mix(major ? .75 : .55, major ? .51 : .36, entity) * tone * cover;
+    });
     for (const group of groups) {
       const change = motionFor(group, p, explosion);
       group.node.visible = change.rise > .008;
       group.node.position.set(change.x, change.y, change.z);
       group.node.scale.y = Math.max(.003, change.rise);
     }
-    ground.material.uniforms.opacity.value = mix(.92, .72, tilt) * push;
-    ghostAxes.material.opacity = mix(.23, .08, tilt) * push;
+    ground.material.uniforms.opacity.value = mix(.92, .72, tilt) * push * (1 - drawing.value * .88);
+    ghostAxes.material.opacity = mix(.23, .08, tilt) * push * (1 - drawing.value);
     axisTips.material.opacity = smooth(p, .185, .261) * .42 * (1 - tilt * .85);
     const pageInk = 1 - smooth(p, .3, .476) * .72;
     let current = site.apply(p, camera, width, height);
     for (const { pencil, start, end, ink } of plot) {
       const fraction = clamp((p - start) / (end - start), 0, 1);
-      if (pencil.apply(fraction, ink * pageInk)) current = pencil.tip;
+      if (pencil.apply(fraction, ink * pageInk * (1 - drawing.value))) current = pencil.tip;
     }
     cursor.visible = Boolean(current) && p < .290;
     if (cursor.visible) {
@@ -340,8 +389,10 @@ async function initialize() {
       ? { x: 0, y: 0, z: 0 }
       : motionFor({ kind: 'roof', floor: band, pivot: 0 }, p, explosion));
     stageElement.dataset.plantVolumes = plants;
-    updateEditorial(position);
-    updateCallouts(camera, width, height, p, explosion);
+    elevations(street);
+    sectionDatums(street.datum, camera, width, height);
+    updateEditorial(position, p, street, width);
+    updateCallouts(camera, width, height, p, storyPosition, street);
     renderer.render(scene, camera);
   }
   function queueRender(force = false) {
@@ -362,7 +413,7 @@ async function initialize() {
       defaults: { ease: 'none' },
       scrollTrigger: {
         trigger: '#sequence', start: 'top top', end: 'bottom bottom',
-        scrub: motionPreference.matches ? true : .24,
+        scrub: true,
         invalidateOnRefresh: true,
       },
       onUpdate() {

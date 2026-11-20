@@ -1,0 +1,38 @@
+@media (prefers-reduced-motion: no-preference) {
+  .scroll-space { height: clamp(5850px, 885vh, 9700px); }
+}
+
+.section-datum {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  color: var(--gold);
+  font: 10px/1 var(--mono);
+  white-space: pre;
+  pointer-events: none;
+}
+
+.stage[data-phase="06"] #view-type { color: var(--ivory); }
+.stage[data-phase="06"] .caption p { max-width: 21em; }
+.callout.technical-handwriting { font-size: clamp(11px, 1.08vw, 16px); letter-spacing: .035em; }
+.callout.technical-handwriting i { width: 42px; transform: rotate(-30deg); transform-origin: left center; }
+.callout.technical-handwriting span { transform: translateY(-21px); }
+.callout.technical-handwriting i::before {
+  width: 5px;
+  height: 5px;
+  border: solid var(--gold);
+  border-width: 0 0 1px 1px;
+  border-radius: 0;
+  background: transparent;
+  transform: rotate(45deg);
+}
+
+@media (max-width: 730px) {
+  .callout.technical-handwriting i { width: 23px; transform: rotate(-36deg); }
+  .callout.technical-handwriting span { max-width: 65px; white-space: normal; transform: translateY(-14px); }
+}
+
+@media (max-height: 540px) {
+  .scale button { min-height: 26px; }
+}
