@@ -136,28 +136,28 @@ button { font: inherit; }
   gap: 0;
 }
 .scale button {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  width: 74px;
-  min-height: 36px;
+  display: grid;
+  align-content: center;
+  width: 48px;
   padding: 0 7px;
   border: 0;
   background: transparent;
-  color: #e9deca9e;
   cursor: pointer;
-  text-align: left;
-  font: 11px/1 var(--mono);
 }
 .scale i {
-  display: block;
-  height: 1px;
-  width: 15px;
-  background: currentColor;
-  transition: width .25s ease, color .25s ease;
+  display: flex;
+  height: clamp(8px, 1.05vh, 11px);
+  align-items: center;
 }
-.scale button:hover, .scale button[aria-current="step"] { color: var(--gold); }
-.scale button[aria-current="step"] i { width: 34px; box-shadow: 0 0 11px #d9a34c80; }
+.scale i::before {
+  content: "";
+  width: 13px;
+  height: 1px;
+  background: #a8afbb60;
+}
+.scale .passed::before { background: #b0a18b9e; }
+.scale .current::before { width: 28px; background: var(--gold); }
+.scale button:hover, .scale button:focus-visible { background: #d9a34c0c; }
 .scale button:focus-visible { outline: 1px solid var(--gold); outline-offset: -2px; }
 .caption {
   position: absolute;
@@ -226,9 +226,10 @@ button { font: inherit; }
   .viewstamp { top: 27px; font-size: 8px; gap: 5px; }
   .viewstamp__index { padding-bottom: 5px; }
   .scale { left: 15px; top: 56%; }
-  .scale button { width: 50px; min-height: 37px; gap: 5px; font-size: 10px; }
-  .scale i { width: 8px; }
-  .scale button[aria-current="step"] i { width: 20px; }
+  .scale button { width: 44px; }
+  .scale i { height: 8px; }
+  .scale i::before { width: 9px; }
+  .scale .current::before { width: 20px; }
   .caption { bottom: 79px; }
   .caption p { font-size: 11px; }
   .transport { bottom: 31px; }

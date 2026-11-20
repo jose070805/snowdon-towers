@@ -12,6 +12,7 @@ export function streetSequence(progress) {
     approach: smooth(progress, .698, .769) * (1 - returnToAxon),
     headOn: smooth(progress, .769, .789),
     drawing: smooth(progress, .781, .796) * (1 - smooth(progress, .836, .872)),
+    wire: smooth(progress, .833, .871),
     comparison: smooth(progress, .803, .829),
     shell: smooth(progress, .890, .928),
     datum: smooth(progress, .890, .907) * (1 - smooth(progress, .929, .952)),

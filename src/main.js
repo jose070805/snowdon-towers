@@ -32,6 +32,15 @@ for (const chapter of chapters.slice(0, 5)) {
 }
 
 const controls = [...document.querySelectorAll('[data-stage]')];
+const tickCount = 32;
+const ticks = Array.from({ length: tickCount }, (_, index) => {
+  const chapter = chapters.findLastIndex(({ start }) => index >= Math.round(start * tickCount));
+  const tick = document.createElement('i');
+  tick.setAttribute('aria-hidden', 'true');
+  controls[chapter].append(tick);
+  return tick;
+});
+let previousTick = -1;
 const callouts = [...document.querySelectorAll('.callout')];
 const assembledLabels = [
   { name: '拱窗立面', at: [53.94, 34.93, 36.17], kind: 'heritage', floor: 2, side: 'right' },
@@ -109,7 +118,7 @@ function guideLines() {
   return segmentsFrom(values);
 }
 
-function createGroups(model, scene, lamp, drawing, shell) {
+function createGroups(model, scene, lamp, drawing, shell, wire) {
   const groups = new Map();
   const solid = { value: 0 };
   const materials = new Map();
@@ -135,7 +144,7 @@ function createGroups(model, scene, lamp, drawing, shell) {
     const skin = isShell(part.group);
     const materialKey = `${skin}-${part.finish}`;
     if (!materials.has(materialKey)) {
-      const material = createFinish(part.finish, solid, lamp, { drawing, shell: skin ? shell : undefined });
+      const material = createFinish(part.finish, solid, lamp, { drawing, wire, shell: skin ? shell : undefined });
       if (skin) {
         material.forceSinglePass = true;
         shellMaterials.push(material);
@@ -261,6 +270,14 @@ function updateCallouts(camera, width, height, progress, position, street) {
 let previousChapter = -1;
 let previousPercent = -1;
 function updateEditorial(progress, base, street, width) {
+  const activeTick = Math.min(tickCount - 1, Math.floor(progress * tickCount));
+  if (activeTick !== previousTick) {
+    ticks.forEach((tick, i) => {
+      tick.classList.toggle('current', i === activeTick);
+      tick.classList.toggle('passed', i < activeTick);
+    });
+    previousTick = activeTick;
+  }
   const position = Math.round(progress * 100);
   if (position !== previousPercent) {
     previousPercent = position;
@@ -296,14 +313,15 @@ async function initialize() {
 
   const model = await loadGeometry();
   const drawing = { value: 0 };
+  const wire = { value: 0 };
   const shell = { value: 0 };
   const [site, landscape, elevations] = await Promise.all([
     makeSitePlan(scene, model.read(model.meta.plan.shell)),
-    makeLandscape(scene, drawing),
+    makeLandscape(scene, drawing, wire),
     makeSouthElevations(scene),
   ]);
   const lamp = { value: 0 };
-  const { groups, solid, lineMaterials, shellMaterials } = createGroups(model, scene, lamp, drawing, shell);
+  const { groups, solid, lineMaterials, shellMaterials } = createGroups(model, scene, lamp, drawing, shell, wire);
   const sectionDatums = makeSectionDatums(scene, stageElement);
   const ground = makeGround();
   scene.add(ground);
@@ -328,6 +346,7 @@ async function initialize() {
 
   const draftColor = new THREE.Color('#e1b166');
   const inkColor = new THREE.Color('#171f33');
+  const wireGold = new THREE.Color('#d9a34c');
   const trimColor = new THREE.Color('#506581');
   let width = 1;
   let height = 1;
@@ -346,11 +365,11 @@ async function initialize() {
     solid.value = entity;
     lamp.value = smooth(p, .776, .810);
     drawing.value = street.drawing;
+    wire.value = street.wire;
     shell.value = street.shell * (1 - explosion * .52);
     const shellFades = shell.value > .001;
     for (const material of shellMaterials) {
-      material.transparent = shellFades;
-      material.depthWrite = !shellFades;
+      material.alphaToCoverage = shellFades;
     }
     stageElement.style.setProperty('--entity', entity);
     lineMaterials.forEach((material, i) => {
@@ -358,8 +377,10 @@ async function initialize() {
       const ink = major ? inkColor : trimColor;
       const tone = 1 - drawing.value * .89;
       const cover = i >= 2 ? 1 - shell.value * .76 : 1;
-      material.color.copy(draftColor).lerp(ink, entity);
-      material.opacity = mix(major ? .75 : .55, major ? .51 : .36, entity) * tone * cover;
+      material.color.copy(draftColor).lerp(ink, entity).lerp(wireGold, wire.value);
+      const oldInk = mix(major ? .75 : .55, major ? .51 : .36, entity) * tone * cover;
+      const wireInk = major ? (width < 730 ? .76 : .94) : (width < 730 ? .23 : .48);
+      material.opacity = mix(oldInk, wireInk * (i >= 2 ? 1 - .35 * shell.value : 1), wire.value);
     });
     for (const group of groups) {
       const change = motionFor(group, p, explosion);

@@ -34,5 +34,5 @@
 }
 
 @media (max-height: 540px) {
-  .scale button { min-height: 26px; }
+  .scale i { height: 7px; }
 }
