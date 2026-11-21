@@ -32,18 +32,30 @@ for (const chapter of chapters.slice(0, 5)) {
   chapter.stop *= earlySequenceScale;
 }
 
+// Holds are measured in scroll distance on the original, one-unit shot sequence.
+const holds = [
+  { at: .0832, length: .028 }, { at: .648, length: .038 },
+  { at: .818, length: .029 }, { at: .916, length: .029 },
+];
+const scrollLength = 1 + holds.reduce((total, hold) => total + hold.length, 0);
+function storyAt(scroll) {
+  let time = scroll * scrollLength;
+  for (const { at, length } of holds) time -= clamp(time - at, 0, length);
+  return clamp(time, 0, 1);
+}
+function scrollAt(time) {
+  return (time + holds.reduce((sum, hold) => sum + (time > hold.at ? hold.length : 0), 0)) / scrollLength;
+}
 const controls = [...document.querySelectorAll('[data-stage]')];
-const tickCount = 32;
-const ticks = Array.from({ length: tickCount }, (_, index) => {
-  const chapter = chapters.findLastIndex(({ start }) => index >= Math.round(start * tickCount));
+const tickCount = 48;
+for (let i = 0; i < tickCount; i++) {
+  const chapter = chapters.findLastIndex(({ start }) => i >= Math.round(scrollAt(start) * tickCount));
   const tick = document.createElement('i');
   tick.setAttribute('aria-hidden', 'true');
   controls[chapter].append(tick);
-  return tick;
-});
-let previousTick = -1;
+}
 const queries = Object.fromEntries(
-  ['view-type', 'percent', 'progress', 'scene', 'loading']
+  ['view-type', 'progress', 'scene', 'loading']
     .map((id) => [id, document.getElementById(id)]),
 );
 const masthead = document.querySelector('.masthead');
@@ -52,7 +64,7 @@ for (const button of controls) {
   button.addEventListener('click', () => {
     const chapter = chapters[Number(button.dataset.stage)];
     const distance = document.querySelector('.scroll-space').offsetHeight;
-    window.scrollTo({ top: Math.round(distance * chapter.stop), behavior: motionPreference.matches ? 'instant' : 'smooth' });
+    window.scrollTo({ top: Math.round(distance * scrollAt(chapter.stop)), behavior: motionPreference.matches ? 'instant' : 'smooth' });
   });
 }
 
@@ -215,22 +227,8 @@ function pose(camera, progress, width, height, site, street) {
 }
 
 let previousChapter = -1;
-let previousPercent = -1;
-function updateEditorial(progress, street) {
-  const activeTick = Math.min(tickCount - 1, Math.floor(progress * tickCount));
-  if (activeTick !== previousTick) {
-    ticks.forEach((tick, i) => {
-      tick.classList.toggle('current', i === activeTick);
-      tick.classList.toggle('passed', i < activeTick);
-    });
-    previousTick = activeTick;
-  }
-  const position = Math.round(progress * 100);
-  if (position !== previousPercent) {
-    previousPercent = position;
-    queries.percent.textContent = String(position).padStart(2, '0');
-    queries.progress.style.transform = `scaleX(${progress})`;
-  }
+function updateEditorial(progress, street, scroll) {
+  queries.progress.style.transform = 'scaleX(' + scroll + ')';
   const era = chapters.findLastIndex((chapter) => progress + .0001 >= chapter.start);
   if (era !== previousChapter) {
     previousChapter = era;
@@ -301,7 +299,8 @@ async function initialize() {
   function render() {
     pendingFrame = 0;
     previousPosition = position;
-    const storyPosition = motionPreference.matches ? chapters[chapters.findLastIndex((chapter) => position + .0001 >= chapter.start)].stop : position;
+    const story = storyAt(position);
+    const storyPosition = motionPreference.matches ? chapters[chapters.findLastIndex((chapter) => story + .0001 >= chapter.start)].stop : story;
     const p = Math.min(storyPosition / earlySequenceScale, .913);
     const street = streetSequence(storyPosition);
     const { explosion } = street;
@@ -325,7 +324,7 @@ async function initialize() {
       material.color.copy(draftColor).lerp(ink, entity).lerp(wireGold, wire.value);
       const oldInk = mix(major ? .75 : .55, major ? .51 : .36, entity) * tone * cover;
       const wireInk = major ? (width < 730 ? .76 : .94) : (width < 730 ? .23 : .48);
-      material.opacity = mix(oldInk, wireInk * (i >= 2 ? 1 - .35 * shell.value : 1), wire.value);
+      material.opacity = mix(oldInk, wireInk * (1 - .85 * drawing.value) * (i >= 2 ? 1 - .35 * shell.value : 1), wire.value);
     });
     for (const group of groups) {
       const change = motionFor(group, p, explosion);
@@ -357,7 +356,7 @@ async function initialize() {
     stageElement.dataset.plantVolumes = plants;
     elevations(street);
     sectionDatums(street.datum, camera, width, height);
-    updateEditorial(position, street);
+    updateEditorial(story, street, position);
     annotations(camera, width, height, storyPosition, motionPreference.matches);
     renderer.render(scene, camera);
   }
@@ -388,7 +387,7 @@ async function initialize() {
       },
     });
     timeline.to(state, { progress: 1, duration: 1 }, 0);
-    chapters.forEach((chapter) => timeline.addLabel(chapter.id, chapter.start));
+    chapters.forEach((chapter) => timeline.addLabel(chapter.id, scrollAt(chapter.start)));
     return timeline;
   }
 

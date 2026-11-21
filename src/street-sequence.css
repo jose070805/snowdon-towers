@@ -1,5 +1,5 @@
 @media (prefers-reduced-motion: no-preference) {
-  .scroll-space { height: clamp(5850px, 885vh, 9700px); }
+  .scroll-space { height: clamp(6575px, 995vh, 10905px); }
 }
 
 .section-datum {
@@ -15,5 +15,5 @@
 
 .stage[data-phase="06"] #view-type { color: var(--ivory); }
 @media (max-height: 540px) {
-  .scale i { height: 7px; }
+  .scale i { height: 5px; }
 }

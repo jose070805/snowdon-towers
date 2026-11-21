@@ -12,7 +12,7 @@ export function streetSequence(progress) {
     approach: smooth(progress, .698, .769) * (1 - returnToAxon),
     headOn: smooth(progress, .769, .789),
     drawing: smooth(progress, .781, .796) * (1 - smooth(progress, .836, .872)),
-    wire: smooth(progress, .833, .871),
+    wire: smooth(progress, .752, .776),
     comparison: smooth(progress, .803, .829),
     shell: smooth(progress, .890, .928),
     datum: smooth(progress, .890, .907) * (1 - smooth(progress, .929, .952)),
@@ -70,7 +70,7 @@ export async function makeSouthElevations(scene) {
   if (!response.ok) throw new Error(`Elevation request returned ${response.status}`);
   const { existing, proposed } = await response.json();
   const lines = [
-    makeLinework(existing, '#e9deca', true, 6),
+    makeLinework(existing, '#c79e60', true, 6),
     makeLinework(proposed, '#d9a34c', false, 7),
   ];
   const building = lines[1].geometry;

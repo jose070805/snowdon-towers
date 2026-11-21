@@ -1,18 +1,13 @@
 import * as THREE from 'three';
 import './annotations.css';
 
-// Positions use the same model-space feet as the scene. Each window follows scroll in both directions.
+// Anchors use the model's feet and ride their original explosion groups.
 const notes = [
-  { text: '建筑基址', at: [27, -.1, -9], window: [.026, .22], up: true },
-  { text: '楼板原位升起', at: [-80, 38.16, -2.3], group: 'slab-3', window: [.246, .387] },
-  { text: '斜向光伏围护', at: [-67.65, 43.26, 11.1], group: 'envelope-4', window: [.389, .501], up: true },
-  { text: '历史拱窗', at: [53.94, 34.93, 36.17], group: 'heritage-2', window: [.394, .491] },
-  { text: '屋顶退台', at: [-16, 53, 22], group: 'roof-4', window: [.515, .672] },
-  { text: '木平台与花架', at: [74, 66.25, -24], group: 'roof-6', window: [.584, .682], up: true },
-  { text: '临街拱窗', at: [53.94, 34.93, 36.17], group: 'heritage-2', window: [.687, .778] },
-  { text: 'Retained frontage', lang: 'en', at: [45, 56.6, 39], window: [.78, .868], up: true },
-  { text: '屋顶平台', at: [-.63, 66.09, -22.84], group: 'roof-6', window: [.883, 1.025], up: true },
-  { text: '楼板', at: [-80, 38.16, -2.3], group: 'slab-3', window: [.931, 1.025] },
+  { text: 'retained frontage', at: [53.94, 34.93, 36.17], group: 'heritage-2', mobile: true },
+  { text: 'floor plates', at: [-80, 38.16, -2.3], group: 'slab-3', mobile: true, below: true },
+  { text: 'roof platform', at: [-.63, 66.09, -22.84], group: 'roof-6', up: true, mobile: true },
+  { text: 'solar envelope', at: [-67.65, 43.26, 11.1], group: 'envelope-4', up: true },
+  { text: 'terrace pergola', at: [74, 66.25, -24], group: 'roof-6', up: true },
 ];
 
 const smooth = THREE.MathUtils.smoothstep;
@@ -23,7 +18,7 @@ export function makeAnnotations(groups) {
   const entries = notes.map(note => {
     const tag = document.createElement('span');
     tag.className = 'anchor-note';
-    tag.lang = note.lang ?? 'zh-CN';
+    tag.lang = 'en';
     tag.textContent = note.text;
     const leader = document.createElement('i');
     leader.className = 'anchor-line';
@@ -37,8 +32,12 @@ export function makeAnnotations(groups) {
     const compact = width < 730;
     const margin = compact ? 20 : 40;
     const occupied = [];
-    for (const { at, group, window: [start, end], up, tag, leader, dot } of entries) {
-      const ink = smooth(progress, start, start + .016) * (1 - smooth(progress, end - .016, end));
+    for (const { at, group, mobile, up, below, tag, leader, dot } of entries) {
+      const ink = smooth(progress, .931, .953);
+      if (!ink || (compact && !mobile)) {
+        tag.hidden = leader.hidden = dot.hidden = true;
+        continue;
+      }
       point.fromArray(at);
       if (group) {
         point.y -= group.pivot;
@@ -55,13 +54,14 @@ export function makeAnnotations(groups) {
       const w = tag.offsetWidth, h = tag.offsetHeight;
       const side = x < width * .56 ? -1 : 1;
       const dx = compact ? 20 : 46;
-      const dy = compact ? 44 : 58;
+      const dy = compact && below ? Math.min(width * .39, height * .20) : compact ? 44 : 58;
       let box;
       for (const vertical of [up ? -1 : 1, up ? 1 : -1]) {
         for (const horizontal of [side, -side]) {
           const left = clamp(horizontal > 0 ? x + dx : x - dx - w, margin, width - margin - w);
           const top = clamp(y + vertical * dy - h / 2, compact ? 80 : 96, height - h - 68);
           if (left < (compact ? 63 : 100) && top + h > height * .36 && top < height * .78) continue;
+          if (left + w > width - 280 && top < (compact ? 65 : 120)) continue;
           if (occupied.some(b => left < b.left + b.w + 8 && left + w + 8 > b.left &&
             top < b.top + b.h + 8 && top + h + 8 > b.top)) continue;
           box = { left, top, w, h };

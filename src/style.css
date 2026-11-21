@@ -64,20 +64,6 @@ button { font: inherit; }
   font: 10px/1 var(--mono);
   letter-spacing: .15em;
 }
-.drawing-sheet__top { display: flex; justify-content: space-between; padding: 12px 13px; }
-.drawing-sheet__id {
-  right: 0;
-  bottom: 0;
-  position: absolute;
-  display: grid;
-  gap: 10px;
-  padding: 10px 16px;
-  text-align: right;
-  border-top: 1px solid #d9a34c54;
-  border-left: 1px solid #d9a34c54;
-  background: #101a32b8;
-}
-.drawing-sheet__id strong { font-size: 23px; font-weight: 500; letter-spacing: .12em; }
 .masthead { position: absolute; z-index: 3; left: calc(var(--edge) + 36px); top: max(55px, 9vh); pointer-events: none; }
 .masthead p {
   margin: 0 0 18px 5px;
@@ -128,7 +114,7 @@ button { font: inherit; }
 }
 .scale i {
   display: flex;
-  height: clamp(8px, 1.05vh, 11px);
+  height: clamp(5px, .76vh, 8px);
   align-items: center;
 }
 .scale i::before {
@@ -137,8 +123,7 @@ button { font: inherit; }
   height: 1px;
   background: #a8afbb60;
 }
-.scale .passed::before { background: #b0a18b9e; }
-.scale .current::before { width: 28px; background: var(--gold); }
+.scale button[aria-current="step"] i::before { width: 22px; background: var(--gold); }
 .scale button:hover, .scale button:focus-visible { background: #d9a34c0c; }
 .scale button:focus-visible { outline: 1px solid var(--gold); outline-offset: -2px; }
 .transport {
@@ -147,17 +132,7 @@ button { font: inherit; }
   left: var(--edge);
   right: var(--edge);
   bottom: 47px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: end;
-  gap: 13px;
-  color: #e9decac2;
 }
-.transport__hint, .transport__time { display: flex; align-items: center; gap: 10px; font: 11px/1 var(--mono); letter-spacing: .08em; }
-.transport__wheel { position: relative; width: 10px; height: 15px; border: 1px solid #d9a34c9e; border-radius: 5px; }
-.transport__wheel::after { content: ""; position: absolute; width: 1px; height: 4px; top: 2px; left: 3.5px; background: var(--gold); }
-.transport__time { gap: 5px; }
-#percent { color: var(--gold); }
 .transport__track { grid-column: 1 / -1; background: var(--line); height: 1px; }
 .transport__track i { display: block; background: var(--gold); height: 1px; transform: scaleX(0); transform-origin: left; }
 #annotations { position: absolute; z-index: 2; inset: 0; pointer-events: none; }
@@ -182,16 +157,13 @@ button { font: inherit; }
   .masthead p { margin: 0 0 13px 3px; font-size: 9px; }
   .masthead h1 { font-size: clamp(57px, 13vw, 92px); }
   .drawing-sheet { inset: 27% 7% 25% 12%; font-size: 8px; }
-  .drawing-sheet__top { padding: 8px; }
-  .drawing-sheet__id { padding: 7px 10px; }
-  .drawing-sheet__id strong { font-size: 17px; }
   .viewstamp { top: 27px; font-size: 8px; gap: 5px; }
   .viewstamp__index { padding-bottom: 5px; }
   .scale { left: 15px; top: 56%; }
   .scale button { width: 44px; }
-  .scale i { height: 8px; }
+  .scale i { height: 6px; }
   .scale i::before { width: 9px; }
-  .scale .current::before { width: 20px; }
+  .scale button[aria-current="step"] i::before { width: 20px; }
   .transport { bottom: 31px; }
 }
 @media (prefers-reduced-motion: reduce) {
