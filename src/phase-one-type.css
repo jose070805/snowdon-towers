@@ -38,17 +38,6 @@
   font-display: swap;
 }
 
-.technical-handwriting,
-.callout.technical-handwriting {
-  font-family: "Architects Daughter", "Segoe Print", cursive;
-  font-weight: 400;
-}
-
-.site-pin > .technical-handwriting {
-  font-size: 1.14em;
-  letter-spacing: .035em;
-}
-
 :root[data-title-preview="space-grotesk"] .masthead h1 {
   font-family: "Space Grotesk", Arial, sans-serif;
 }

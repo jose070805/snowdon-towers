@@ -17,8 +17,6 @@ export async function makeSitePlan(scene, footprints) {
   if (!response.ok) throw new Error(`Site plan request returned ${response.status}`);
   const site = await response.json();
   const officePlate = document.querySelector('.drawing-sheet');
-  const pin = document.querySelector('.site-pin');
-  const project = new THREE.Vector3();
   const datasets = { ...site.layers, locator: Array.from(footprints) };
   const byPhase = layers.map((layer) => {
     const geometry = layer.key === 'locator'
@@ -31,7 +29,7 @@ export async function makeSitePlan(scene, footprints) {
 
   return {
     focus: site.camera,
-    apply(progress, camera, width, height) {
+    apply(progress) {
       const fade = 1 - smooth(progress, .135, .273);
       officePlate.style.setProperty('--sheet-opacity', fade);
       let tip = null;
@@ -40,14 +38,6 @@ export async function makeSitePlan(scene, footprints) {
         const opacity = key === 'locator' ? ink * (1 - smooth(progress, .193, .284)) : ink * fade;
         if (pencil.apply(fraction, opacity)) tip = pencil.tip;
       }
-      const labelAlpha = smooth(progress, .039, .083) * (1 - smooth(progress, .175, .268));
-      if (labelAlpha > .005) {
-        project.set(27, -.10, -9).project(camera);
-        const x = (project.x * .5 + .5) * width;
-        const y = (.5 - project.y * .5) * height;
-        pin.style.transform = `translate(${x}px,${y}px) translateY(-50%)`;
-      }
-      pin.style.opacity = labelAlpha;
       return tip;
     },
   };

@@ -1,3 +1,4 @@
+import { makeAnnotations } from './annotations.js';
 import * as THREE from 'three';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -41,29 +42,11 @@ const ticks = Array.from({ length: tickCount }, (_, index) => {
   return tick;
 });
 let previousTick = -1;
-const callouts = [...document.querySelectorAll('.callout')];
-const assembledLabels = [
-  { name: '拱窗立面', at: [53.94, 34.93, 36.17], kind: 'heritage', floor: 2, side: 'right' },
-  { name: '光伏表皮', at: [-67.65, 43.26, 11.10], kind: 'envelope', floor: 4, side: 'left' },
-];
-const explodedLabels = [
-  { name: '屋顶', at: [-.63, 66.09, -22.84], kind: 'roof', floor: 6, side: 'right' },
-  { name: '楼板', at: [-80, 38.16, -2.30], kind: 'slab', floor: 3, side: 'left' },
-  { name: '历史立面', at: [53.94, 34.93, 36.17], kind: 'heritage', floor: 2, side: 'right' },
-];
-const gardenLabels = [
-  { name: '屋顶退台', at: [-16, 53, 22], kind: 'roof', floor: 4, side: 'right' },
-  { name: '木平台与花架', at: [74, 66.25, -24], kind: 'roof', floor: 6, side: 'right' },
-  { name: '开敞前庭', at: [-62, 2.1, 28], kind: 'slab', floor: 0, side: 'left' },
-];
-const streetLabels = [
-  { name: 'Retained frontage', at: [45, 56.6, 39], kind: 'heritage', floor: 2, side: 'right', handwritten: true },
-];
 const queries = Object.fromEntries(
-  ['view-type', 'phase-index', 'phase-label', 'phase-note', 'percent', 'progress', 'scene', 'loading']
+  ['view-type', 'percent', 'progress', 'scene', 'loading']
     .map((id) => [id, document.getElementById(id)]),
 );
-const masthead = document.querySelector('.masthead h1');
+const masthead = document.querySelector('.masthead');
 
 for (const button of controls) {
   button.addEventListener('click', () => {
@@ -231,45 +214,9 @@ function pose(camera, progress, width, height, site, street) {
   return { tilt, spanWidth, push };
 }
 
-function updateCallouts(camera, width, height, progress, position, street) {
-  const { explosion, drawing } = street;
-  const dAlpha = smooth(position, .947, .982);
-  const cAlpha = smooth(progress, .509, .563) * (1 - smooth(progress, .579, .625));
-  const enlarged = position >= .936;
-  const atStreet = position >= .778 && position < .876;
-  const gardens = progress >= .699 && progress < .848;
-  const entries = enlarged ? explodedLabels : atStreet ? streetLabels : gardens ? gardenLabels : assembledLabels;
-  const alpha = enlarged ? dAlpha : atStreet ? drawing * (1 - smooth(position, .819, .833)) : gardens
-    ? smooth(progress, .752, .791) * (1 - smooth(progress, .815, .848))
-    : cAlpha;
-  const project = new THREE.Vector3();
-  for (let i = 0; i < callouts.length; i++) {
-    const label = callouts[i];
-    const item = entries[i];
-    if (!item || alpha < .005) {
-      label.style.opacity = 0;
-      continue;
-    }
-    const motion = motionFor({ kind: item.kind, floor: item.floor, pivot: 0 }, progress, explosion);
-    project.fromArray(item.at);
-    project.x += motion.x;
-    project.y += item.kind === 'slab' && item.floor === 0 ? 0 : motion.y;
-    project.z += motion.z;
-    project.project(camera);
-    const px = (project.x * .5 + .5) * width;
-    const py = (.5 - project.y * .5) * height;
-    const anchor = item.side === 'left' ? '-100%' : '0%';
-    label.dataset.side = item.side;
-    label.classList.toggle('technical-handwriting', Boolean(item.handwritten));
-    label.lastElementChild.textContent = item.name;
-    label.style.transform = `translate(${Math.round(px)}px,${Math.round(py)}px) translate(${anchor},-50%)`;
-    label.style.opacity = px > 100 && px < width - 86 && py > 48 && py < height - 100 ? alpha : 0;
-  }
-}
-
 let previousChapter = -1;
 let previousPercent = -1;
-function updateEditorial(progress, base, street, width) {
+function updateEditorial(progress, street) {
   const activeTick = Math.min(tickCount - 1, Math.floor(progress * tickCount));
   if (activeTick !== previousTick) {
     ticks.forEach((tick, i) => {
@@ -289,16 +236,13 @@ function updateEditorial(progress, base, street, width) {
     previousChapter = era;
     const chapter = chapters[era];
     stageElement.dataset.phase = chapter.id;
-    queries['phase-index'].textContent = chapter.id;
-    queries['phase-label'].textContent = chapter.label;
-    queries['phase-note'].textContent = chapter.note;
+    queries.scene.setAttribute('aria-label', 'Snowdon Towers · ' + chapter.note);
     queries['view-type'].textContent = chapter.view;
     controls.forEach((control, index) => control.setAttribute('aria-current', index === era ? 'step' : 'false'));
   }
-  const titleScale = mix(.715, .515, smooth(base, .135, .420));
-  masthead.style.transform = `scale(${mix(titleScale, width < 730 ? .46 : .39, street.approach)})`;
-  const title = 1 - .23 * smooth(base, .11, .258) * (1 - smooth(base, .31, .43));
-  stageElement.style.setProperty('--title-opacity', title * (1 - street.approach * .49));
+  const title = motionPreference.matches ? Number(era === 0) : 1 - smooth(progress, .064, chapters[1].start);
+  masthead.style.opacity = title;
+  masthead.style.visibility = title === 0 ? 'hidden' : 'visible';
   if (era === 7 && street.explosion >= .07) queries['view-type'].textContent = 'EXPLODED / DISPLAY GROUPS';
   else if (era === 7) queries['view-type'].textContent = chapters[era].view;
 }
@@ -322,6 +266,7 @@ async function initialize() {
   ]);
   const lamp = { value: 0 };
   const { groups, solid, lineMaterials, shellMaterials } = createGroups(model, scene, lamp, drawing, shell, wire);
+  const annotations = makeAnnotations(groups);
   const sectionDatums = makeSectionDatums(scene, stageElement);
   const ground = makeGround();
   scene.add(ground);
@@ -392,7 +337,7 @@ async function initialize() {
     ghostAxes.material.opacity = mix(.23, .08, tilt) * push * (1 - drawing.value);
     axisTips.material.opacity = smooth(p, .185, .261) * .42 * (1 - tilt * .85);
     const pageInk = 1 - smooth(p, .3, .476) * .72;
-    let current = site.apply(p, camera, width, height);
+    let current = site.apply(p);
     for (const { pencil, start, end, ink } of plot) {
       const fraction = clamp((p - start) / (end - start), 0, 1);
       if (pencil.apply(fraction, ink * pageInk * (1 - drawing.value))) current = pencil.tip;
@@ -412,8 +357,8 @@ async function initialize() {
     stageElement.dataset.plantVolumes = plants;
     elevations(street);
     sectionDatums(street.datum, camera, width, height);
-    updateEditorial(position, p, street, width);
-    updateCallouts(camera, width, height, p, storyPosition, street);
+    updateEditorial(position, street);
+    annotations(camera, width, height, storyPosition, motionPreference.matches);
     renderer.render(scene, camera);
   }
   function queueRender(force = false) {
@@ -455,6 +400,7 @@ async function initialize() {
     ScrollTrigger.refresh();
     queueRender(true);
   });
+  document.fonts.addEventListener('loadingdone', () => queueRender(true));
   new ResizeObserver(resize).observe(stageElement);
   resize();
   ScrollTrigger.refresh();

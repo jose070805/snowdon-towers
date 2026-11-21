@@ -1,0 +1,17 @@
+@font-face {
+  font-family: "Snowdon Field Notes SC";
+  src: url("../assets/fonts/field-notes-sc.woff") format("woff");
+  font-display: swap;
+}
+.anchor-note, .anchor-line, .anchor-dot { position: absolute; top: 0; left: 0; pointer-events: none; }
+.anchor-note {
+  z-index: 1;
+  padding: 2px 5px;
+  white-space: nowrap;
+  font: 400 clamp(15px, 1.25vw, 19px)/1.25 "Snowdon Field Notes SC", sans-serif;
+  color: var(--ivory);
+  background: #101a32c9;
+}
+.anchor-note:lang(en) { font-family: "Architects Daughter", cursive; }
+.anchor-line { height: 1px; background: var(--gold); transform-origin: left center; }
+.anchor-dot { width: 4px; height: 4px; background: var(--gold); border-radius: 50%; }
