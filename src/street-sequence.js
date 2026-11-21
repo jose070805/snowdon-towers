@@ -16,7 +16,9 @@ export function streetSequence(progress) {
     comparison: smooth(progress, .803, .829),
     shell: smooth(progress, .890, .928),
     datum: smooth(progress, .890, .907) * (1 - smooth(progress, .929, .952)),
-    explosion: smooth(progress, .931, .995),
+    study: smooth(progress, .917, .945) * (1 - smooth(progress, 1.065, 1.104)),
+    split: smooth(progress, .938, .985) * (1 - smooth(progress, 1.031, 1.094)),
+    explosion: smooth(progress, 1.034, 1.115),
   };
 }
 
@@ -113,13 +115,13 @@ export function makeSectionDatums(scene, stage) {
   scene.add(rule);
   const point = new THREE.Vector3();
   return (opacity, camera, width, height) => {
-    rule.visible = opacity > .002 && width >= 900;
+    rule.visible = opacity > .002;
     rule.material.opacity = opacity * .50;
     for (const { label, at } of labels) {
       label.hidden = !rule.visible;
       if (label.hidden) continue;
       point.copy(at).project(camera);
-      const left = (.5 + point.x * .5) * width;
+      const left = Math.min((.5 + point.x * .5) * width, width - (width < 730 ? 67 : 79));
       const top = (.5 - point.y * .5) * height;
       label.style.transform = `translate(${left}px, ${top}px) translateY(-50%)`;
       label.style.opacity = opacity;

@@ -1,3 +1,4 @@
+import { makeSemanticStudy } from './semantic-study.js';
 import { makeDragOrbit } from './drag-orbit.js';
 import { makeAnnotations } from './annotations.js';
 import * as THREE from 'three';
@@ -26,7 +27,7 @@ const chapters = [
   { id: '04', label: '屋顶景观', note: '从退台边线到空中花园', view: 'G106 / ROOF LANDSCAPE', start: .600, stop: .810 },
   { id: '05', label: '降至街道', note: '沿街看向历史拱窗', view: 'SOUTH / STREET', start: .653, stop: .768 },
   { id: '06', label: '立面对照', note: '既有与拟建南立面沿共同轴网叠合', view: 'A200 → A201 / SOUTH', start: .776, stop: .820 },
-  { id: '07', label: '分层分析', note: '从 A301 标高参照进入分组解构', view: 'A301 / SECTION DATUMS', start: .875, stop: .999 },
+  { id: '07', label: '分层分析', note: '从 A301 标高参照进入分组解构', view: 'A301 / SECTION DATUMS', start: .875, stop: 1.119 },
 ];
 for (const chapter of chapters.slice(0, 5)) {
   chapter.start *= earlySequenceScale;
@@ -38,11 +39,12 @@ const holds = [
   { at: .0832, length: .028 }, { at: .648, length: .038 },
   { at: .818, length: .029 }, { at: .916, length: .029 },
 ];
-const scrollLength = 1 + holds.reduce((total, hold) => total + hold.length, 0);
+const storyEnd = 1.12;
+const scrollLength = storyEnd + holds.reduce((total, hold) => total + hold.length, 0);
 function storyAt(scroll) {
   let time = scroll * scrollLength;
   for (const { at, length } of holds) time -= clamp(time - at, 0, length);
-  return clamp(time, 0, 1);
+  return clamp(time, 0, storyEnd);
 }
 function scrollAt(time) {
   return (time + holds.reduce((sum, hold) => sum + (time > hold.at ? hold.length : 0), 0)) / scrollLength;
@@ -116,7 +118,7 @@ function guideLines() {
   return segmentsFrom(values);
 }
 
-function createGroups(model, scene, lamp, drawing, shell, wire) {
+function createGroups(model, scene, lamp, drawing, shell, wire, studyMask) {
   const groups = new Map();
   const solid = { value: 0 };
   const materials = new Map();
@@ -142,7 +144,7 @@ function createGroups(model, scene, lamp, drawing, shell, wire) {
     const skin = isShell(part.group);
     const materialKey = `${skin}-${part.finish}`;
     if (!materials.has(materialKey)) {
-      const material = createFinish(part.finish, solid, lamp, { drawing, wire, shell: skin ? shell : undefined });
+      const material = createFinish(part.finish, solid, lamp, { drawing, wire, studyMask, shell: skin ? shell : undefined });
       if (skin) {
         material.forceSinglePass = true;
         shellMaterials.push(material);
@@ -194,15 +196,16 @@ function pose(camera, progress, width, height, site, street, offset) {
   const orbit = smooth(progress, .466, .603);
   const garden = smooth(progress, .592, .752) * (1 - smooth(progress, .816, .913));
   const turn = smooth(progress, .816, .913);
-  const { approach, headOn, explosion } = street;
-  const axonPhi = mix(.018, 1.065, tilt) - garden * .247 + explosion * .065;
+  const { approach, headOn, explosion, split } = street;
+  const datumMargin = mobile ? street.datum : 0;
+  const axonPhi = mix(.018, 1.065, tilt) - garden * .247 + explosion * .065 + split * .22;
   const axonBearing = mix(site.bearing, mix(-.045, -.66, tilt), push) + orbit * .94
     - garden * .51 + turn * .285 - explosion * .31;
   const phi = mix(axonPhi, mix(1.74, Math.PI / 2, headOn), approach) + offset.tilt;
   const bearing = mix(axonBearing, mix(.26, 0, headOn), approach) + offset.bearing;
   const focus = new THREE.Vector3(
     mix(site.x, mix(1, -1, tilt), push) + 9 * explosion,
-    (33.5 + 8 * garden) * tilt + 43 * explosion,
+    (33.5 + 8 * garden) * tilt + 43 * explosion + 50 * split,
     mix(site.z, 1, push) - 4 * garden + 11 * explosion,
   );
   focus.lerp(new THREE.Vector3(1, 38, 15), approach);
@@ -214,14 +217,15 @@ function pose(camera, progress, width, height, site, street, offset) {
   );
   camera.lookAt(focus);
   const ratio = width / height;
-  const modelSpan = mix(mix(site.width * (mobile ? .84 : 1), mix(268, 256, tilt), push) + explosion * 17, 246, approach);
-  const heightSpan = mix(mix(site.height, mix(145, 171, tilt), push) + explosion * 63, mobile ? 105 : 139, approach);
+  const modelSpan = mix(mix(site.width * (mobile ? .84 : 1), mix(268, 256, tilt), push) + explosion * 17 + split * (mobile ? 96 : 22) + 36 * datumMargin, 246, approach);
+  const heightSpan = mix(mix(site.height, mix(145, 171, tilt), push) + explosion * 63 + split * 88, mobile ? 105 : 139, approach);
   const spanWidth = Math.max(modelSpan * (mobile ? .98 : 1), heightSpan * ratio);
   const spanHeight = spanWidth / ratio;
   const translateX = mobile ? mix(mix(.027, .045, push), .025, approach) : mix(.089, .073, push) - explosion * .012;
   const translateY = mobile ? -.016 : mix(.025, -.065, push) + tilt * .076 + explosion * .005;
-  camera.left = (-.5 - translateX) * spanWidth;
-  camera.right = (.5 - translateX) * spanWidth;
+  const centeredX = translateX - split * (mobile ? .11 : .10) - .075 * datumMargin;
+  camera.left = (-.5 - centeredX) * spanWidth;
+  camera.right = (.5 - centeredX) * spanWidth;
   camera.top = (.5 - translateY) * spanHeight;
   camera.bottom = (-.5 - translateY) * spanHeight;
   camera.updateProjectionMatrix();
@@ -254,7 +258,8 @@ function updateEditorial(progress, street, scroll) {
   const title = motionPreference.matches ? Number(era === 0) : 1 - smooth(progress, .064, chapters[1].start);
   masthead.style.opacity = title;
   masthead.style.visibility = title === 0 ? 'hidden' : 'visible';
-  if (era === 7 && street.explosion >= .07) queries['view-type'].textContent = 'EXPLODED / DISPLAY GROUPS';
+  if (era === 7 && street.explosion >= .55) queries['view-type'].textContent = 'EXPLODED / DISPLAY GROUPS';
+  else if (era === 7 && street.study > .5) queries['view-type'].textContent = 'A301 / LEVEL ASSEMBLIES';
   else if (era === 7) queries['view-type'].textContent = chapters[era].view;
 }
 
@@ -267,16 +272,17 @@ async function initialize() {
   queries.scene.append(renderer.domElement);
 
   const model = await loadGeometry();
+  const studyMask = { value: 0 };
   const drawing = { value: 0 };
   const wire = { value: 0 };
   const shell = { value: 0 };
   const [site, landscape, elevations] = await Promise.all([
     makeSitePlan(scene, model.read(model.meta.plan.shell)),
-    makeLandscape(scene, drawing, wire),
+    makeLandscape(scene, drawing, wire, studyMask),
     makeSouthElevations(scene),
   ]);
   const lamp = { value: 0 };
-  const { groups, solid, lineMaterials, shellMaterials } = createGroups(model, scene, lamp, drawing, shell, wire);
+  const { groups, solid, lineMaterials, shellMaterials } = createGroups(model, scene, lamp, drawing, shell, wire, studyMask);
   const annotations = makeAnnotations(groups);
   const sectionDatums = makeSectionDatums(scene, stageElement);
   const ground = makeGround();
@@ -309,14 +315,35 @@ async function initialize() {
   let pendingFrame = 0;
   let position = 0;
   let previousPosition = -1;
+  let applyStudy;
+  let studyRequested = false;
+  function requestStudy() {
+    studyRequested = true;
+    makeSemanticStudy(scene, model, landscape).then(apply => {
+      applyStudy = apply;
+      stageElement.dataset.study = 'ready';
+      queueRender(true);
+    }).catch(error => {
+      stageElement.dataset.study = 'unavailable';
+      console.error(error);
+      queueRender(true);
+    });
+  }
   const dragOrbit = makeDragOrbit(renderer.domElement, () => queueRender(true));
   function render() {
     pendingFrame = 0;
     previousPosition = position;
     const story = storyAt(position);
-    const storyPosition = motionPreference.matches ? chapters[chapters.findLastIndex((chapter) => story + .0001 >= chapter.start)].stop : story;
+    let storyPosition = story;
+    if (motionPreference.matches) {
+      storyPosition = chapters[chapters.findLastIndex(chapter => story >= chapter.start)].stop;
+      if (story >= .875 && story < 1.066) storyPosition = story < .939 ? .916 : 1.008;
+    }
     const p = Math.min(storyPosition / earlySequenceScale, .913);
     const street = streetSequence(storyPosition);
+    if (storyPosition >= .74 && !studyRequested) requestStudy();
+    if (!applyStudy) { street.study = 0; street.split = 0; }
+    studyMask.value = street.study;
     const { explosion } = street;
     const { tilt, spanWidth, push } = pose(camera, p, width, height, site.focus, street, dragOrbit(storyPosition, motionPreference.matches));
     const entity = smooth(p, .482, .577);
@@ -338,11 +365,11 @@ async function initialize() {
       material.color.copy(draftColor).lerp(ink, entity).lerp(wireGold, wire.value);
       const oldInk = mix(major ? .75 : .55, major ? .51 : .36, entity) * tone * cover;
       const wireInk = major ? (width < 730 ? .76 : .94) : (width < 730 ? .23 : .48);
-      material.opacity = mix(oldInk, wireInk * (1 - .85 * drawing.value) * (i >= 2 ? 1 - .35 * shell.value : 1), wire.value);
+      material.opacity = mix(oldInk, wireInk * (1 - .85 * drawing.value) * (i >= 2 ? 1 - .35 * shell.value : 1), wire.value) * (1 - street.study);
     });
     for (const group of groups) {
       const change = motionFor(group, p, explosion);
-      group.node.visible = change.rise > .008;
+      group.node.visible = change.rise > .008 && street.study < .9999;
       group.node.position.set(change.x, change.y, change.z);
       group.node.scale.y = Math.max(.003, change.rise);
     }
@@ -366,11 +393,16 @@ async function initialize() {
     guides.material.opacity = explosion * .58;
     const plants = landscape.apply(p, (band) => band < 0
       ? { x: 0, y: 0, z: 0 }
-      : motionFor({ kind: 'roof', floor: band, pivot: 0 }, p, explosion));
+      : motionFor({ kind: 'roof', floor: band, pivot: 0 }, p, explosion), street.split);
     stageElement.dataset.plantVolumes = plants;
     elevations(street);
+    applyStudy?.(street, camera, width, height, (kind, floor, explosion) =>
+      motionFor({ kind, floor, pivot: 0 }, p, explosion));
     sectionDatums(street.datum, camera, width, height);
     updateEditorial(story, street, position);
+    if (stageElement.dataset.study === 'unavailable' && storyPosition >= .939 && storyPosition < 1.066) {
+      queries['view-type'].textContent = 'A301 / PLATE DATA UNAVAILABLE';
+    }
     annotations(camera, width, height, storyPosition, motionPreference.matches);
     renderer.render(scene, camera);
   }

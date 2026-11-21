@@ -12,11 +12,12 @@ const layers = [
   { key: 'locator', from: .051, to: .10, ink: 1 },
 ];
 
-// Reuse the registered C101 strokes and its sheet bearing for the marginal trace.
+// Reuse the registered C101 strokes and its sheet bearing for the full-bleed underlay.
 function makeSiteTrace(site, footprints) {
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
   svg.classList.add('site-trace');
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
   svg.setAttribute('aria-hidden', 'true');
   svg.style.opacity = 0;
   const { bearing, x, z } = site.camera;
@@ -26,6 +27,7 @@ function makeSiteTrace(site, footprints) {
   function addPath(segments, opacity) {
     const path = document.createElementNS(ns, 'path');
     path.setAttribute('d', segments.map(([a,b,c,d]) => 'M' + a + ' ' + b + 'L' + c + ' ' + d).join(''));
+    path.setAttribute('vector-effect', 'non-scaling-stroke');
     path.setAttribute('opacity', opacity);
     group.append(path);
   }
@@ -63,7 +65,7 @@ export async function makeSitePlan(scene, footprints) {
     focus: site.camera,
     apply(progress) {
       const fade = 1 - smooth(progress, .135, .273);
-      trace.style.opacity = (.26 * smooth(progress, .16, .34)).toFixed(3);
+      trace.style.opacity = (.10 + .12 * smooth(progress, .13, .32)).toFixed(3);
       officePlate.style.setProperty('--sheet-opacity', fade);
       let tip = null;
       for (const { key, from, to, ink, pencil } of byPhase) {

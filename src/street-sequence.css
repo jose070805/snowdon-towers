@@ -1,5 +1,5 @@
 @media (prefers-reduced-motion: no-preference) {
-  .scroll-space { height: clamp(6575px, 995vh, 10905px); }
+  .scroll-space { height: clamp(7277px, 1101vh, 12069px); }
 }
 
 .section-datum {
@@ -16,4 +16,14 @@
 .stage[data-phase="06"] #view-type { color: var(--ivory); }
 @media (max-height: 540px) {
   .scale i { height: 7px; }
+}
+
+.plate-legend { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.plate-legend span, .plate-legend i { position: absolute; top: 0; left: 0; }
+.plate-legend span { color: var(--gold); font: 11px/1.15 var(--mono); white-space: nowrap; }
+.plate-legend em { margin-left: 7px; color: var(--ivory); font: 15px/1.1 "Architects Daughter", cursive; }
+.plate-legend i { height: 1px; background: #d9a34c70; transform-origin: left center; }
+@media (max-width: 730px) {
+  .plate-legend span, .section-datum { font-size: 9px; }
+  .plate-legend em { display: none; }
 }

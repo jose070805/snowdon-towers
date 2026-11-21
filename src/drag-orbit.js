@@ -8,6 +8,8 @@ export function makeDragOrbit(canvas, requestRender) {
   let yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0;
   let active = false, pointer = null, lastFrame = 0;
 
+  let previousTime = 0, rewind = 0;
+
   function release() {
     if (!pointer) return;
     const id = pointer.id;
@@ -17,6 +19,7 @@ export function makeDragOrbit(canvas, requestRender) {
   }
   canvas.addEventListener('pointerdown', event => {
     if (!active || !event.isPrimary || event.button !== 0 || pointer) return;
+    rewind = 0;
     pointer = { id: event.pointerId, x: event.clientX, y: event.clientY,
       yaw: targetYaw, pitch: targetPitch, accepted: event.pointerType === 'mouse' };
     canvas.setPointerCapture(event.pointerId);
@@ -41,6 +44,14 @@ export function makeDragOrbit(canvas, requestRender) {
   window.addEventListener('blur', release);
 
   return (time, reduced) => {
+    // Rewinding relinquishes the local pose progressively to the authored shot.
+    if (!pointer && time < previousTime && rewind < 1) {
+      const next = Math.min(1, rewind + (previousTime - time) / .045);
+      const ratio = (1 - smoothstep(next, 0, 1)) / (1 - smoothstep(rewind, 0, 1));
+      yaw *= ratio; pitch *= ratio; targetYaw *= ratio; targetPitch *= ratio;
+      rewind = next;
+    }
+    previousTime = time;
     const roof = smoothstep(time, .480, .503) * (1 - smoothstep(time, .648, .653));
     const south = smoothstep(time, .776, .789);
     const axon = smoothstep(time, .875, .916);

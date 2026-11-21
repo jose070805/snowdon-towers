@@ -46,6 +46,7 @@ const fragment = /* glsl */`
   uniform float lamp;
   uniform float drawing;
   uniform float wire;
+  uniform float studyMask;
   uniform float shell;
   uniform vec3 spread;
   varying vec3 sitePosition;
@@ -61,6 +62,7 @@ const fragment = /* glsl */`
   }
 
   void main() {
+    if (studyMask > 0. && fract(dot(mod(floor(gl_FragCoord.xy), 4.), vec2(.25, .4375))) < studyMask) discard;
     float front = (sitePosition.x + .40 * sitePosition.z - spread.x) / spread.y;
     if (spread.z < .999 && front > spread.z) discard;
     vec3 normal = normalize(cross(dFdx(worldPosition), dFdy(worldPosition)));
@@ -121,6 +123,7 @@ export function createFinish(name, solid, lamp = { value: 1 }, presentation = {}
       lamp,
       wire: presentation.wire ?? { value: 0 },
       drawing: presentation.drawing ?? { value: 0 },
+      studyMask: presentation.studyMask ?? { value: 0 },
       shell: presentation.shell ?? { value: 0 },
       spread: { value: new THREE.Vector3(0, 1, 1) },
       kind: { value: kind },

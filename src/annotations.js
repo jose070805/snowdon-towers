@@ -2,17 +2,8 @@ import * as THREE from 'three';
 import './annotations.css';
 
 // Anchors use the model's feet and ride their original explosion groups.
-const roof = [.494, .653];
-const facade = [.776, .875];
-const layers = [.875, 1.04];
+const layers = [1.096, 1.15];
 const notes = [
-  { text: 'roof platform', at: [-16, 53, 22], group: 'roof-4', window: roof, side: 1, reach: [160, 130], mobile: true },
-  { text: 'terrace pergola', at: [74, 66.25, -24], group: 'roof-6', window: roof, up: true, mobile: true },
-  { text: 'solar envelope', at: [-67.65, 43.26, 11.1], group: 'envelope-4', window: roof, reach: [125, 192], up: true, mobile: true },
-  // These leaders terminate on the registered A200/A201 elevation plane.
-  { text: 'retained frontage', at: [11.5, 57, 39], window: facade, reach: [154, 93], up: true, mobile: true },
-  { text: 'arched bays', at: [53.94, 46.2, 39], window: facade, reach: [182, 100], up: true, mobile: true },
-  { text: 'street level', at: [-59, 6, 39], window: facade, mobile: true },
   { text: 'retained frontage', at: [53.94, 34.93, 36.17], group: 'heritage-2', mobile: true },
   { text: 'floor plates', at: [-80, 38.16, -2.3], group: 'slab-3', mobile: true, below: true },
   { text: 'roof platform', at: [-.63, 66.09, -22.84], group: 'roof-6', up: true, mobile: true },

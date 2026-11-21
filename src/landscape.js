@@ -55,7 +55,7 @@ function makePlants(plants, scene, presentation) {
   const form = new THREE.Object3D();
   return (progress, offset, lineVisibility) => {
     outline.material.color.copy(leafIvory).lerp(leafGold, presentation.wire.value);
-    outline.material.opacity = THREE.MathUtils.lerp(.76 * lineVisibility, .54, presentation.wire.value);
+    outline.material.opacity = THREE.MathUtils.lerp(.76 * lineVisibility, .54, presentation.wire.value) * (1 - presentation.studyMask.value);
     let volumeIndex = 0, stemIndex = 0;
     for (const item of plants) {
       const [x, base, z] = item.at;
@@ -97,12 +97,12 @@ function makePlants(plants, scene, presentation) {
   };
 }
 
-export async function makeLandscape(scene, drawing, wire) {
+export async function makeLandscape(scene, drawing, wire, studyMask) {
   const response = await fetch(gardenUrl);
   if (!response.ok) throw new Error(`Landscape request returned ${response.status}`);
   const stream = response.body.pipeThrough(new DecompressionStream('gzip'));
   const garden = await new Response(stream).json();
-  const presentation = { drawing, wire };
+  const presentation = { drawing, wire, studyMask };
   const surfaces = garden.surfaces.filter(({ kind }) => kind !== 'planter').map((entry) => meshLayer(entry, scene, true, presentation));
   const elevatedDetails = [
     ...garden.surfaces.filter(({ kind }) => kind === 'planter'),
@@ -116,7 +116,16 @@ export async function makeLandscape(scene, drawing, wire) {
   const sequenceOffset = { west: 0, center: .009, east: .017 };
 
   return {
-    apply(progress, offset) {
+    bindRoofSupports(supports) {
+      for (const entry of elevatedDetails) {
+        const match = entry.ids.length === 1 && supports[entry.ids[0]];
+        if (match) {
+          entry.plateLift = match.liftFt;
+          entry.mesh.material.uniforms.studyMask = { value: 0 };
+        }
+      }
+    },
+    apply(progress, offset, split) {
       const lineVisibility = 1 - drawing.value * .90;
       for (const { group, mesh, pencil, band, kind, region } of surfaces) {
         const shift = sequenceOffset[region];
@@ -129,17 +138,17 @@ export async function makeLandscape(scene, drawing, wire) {
         mesh.visible = spread > 0;
         mesh.material.uniforms.spread.value.z = spread;
         pencil.lines.material.color.copy(ink).lerp(surfaceEdge, spread).lerp(gold, wire.value);
-        pencil.apply(draw, THREE.MathUtils.lerp(.94, .48, spread) * lineVisibility);
+        pencil.apply(draw, THREE.MathUtils.lerp(.94, .48, spread) * lineVisibility * (1 - studyMask.value));
       }
       for (const entry of elevatedDetails) {
         entry.line.material.color.copy(ivory).lerp(gold, wire.value);
-        entry.line.material.opacity = THREE.MathUtils.lerp(.30 * lineVisibility, .62, wire.value);
+        entry.line.material.opacity = THREE.MathUtils.lerp(.30 * lineVisibility, .62, wire.value) * (entry.plateLift === undefined ? 1 - studyMask.value : 1);
         const start = entry.kind === 'planter' ? .664 + sequenceOffset[entry.region] : .736 + plantSeed(entry.ids[0]) * .024;
         const height = smooth(progress, start, start + .039);
         const delta = offset(entry.band);
         entry.group.visible = height > .0001;
         entry.group.scale.y = Math.max(.0001, height);
-        entry.group.position.set(delta.x, delta.y + entry.base * (1 - height), delta.z);
+        entry.group.position.set(delta.x, delta.y + (entry.plateLift ?? 0) * split + entry.base * (1 - height), delta.z);
       }
       return drawPlants(progress, offset, lineVisibility);
     },
