@@ -47,15 +47,17 @@ function scrollAt(time) {
   return (time + holds.reduce((sum, hold) => sum + (time > hold.at ? hold.length : 0), 0)) / scrollLength;
 }
 const controls = [...document.querySelectorAll('[data-stage]')];
-const tickCount = 48;
-for (let i = 0; i < tickCount; i++) {
+const tickCount = 32;
+const ticks = Array.from({ length: tickCount }, (_, i) => {
   const chapter = chapters.findLastIndex(({ start }) => i >= Math.round(scrollAt(start) * tickCount));
   const tick = document.createElement('i');
   tick.setAttribute('aria-hidden', 'true');
   controls[chapter].append(tick);
-}
+  return tick;
+});
+let currentTick = -1;
 const queries = Object.fromEntries(
-  ['view-type', 'progress', 'scene', 'loading']
+  ['view-type', 'percent', 'progress', 'scene', 'loading']
     .map((id) => [id, document.getElementById(id)]),
 );
 const masthead = document.querySelector('.masthead');
@@ -228,6 +230,14 @@ function pose(camera, progress, width, height, site, street) {
 
 let previousChapter = -1;
 function updateEditorial(progress, street, scroll) {
+  const tick = Math.min(tickCount - 1, Math.floor(scroll * tickCount));
+  if (tick !== currentTick) {
+    ticks[currentTick]?.classList.remove('current');
+    ticks[tick].classList.add('current');
+    currentTick = tick;
+  }
+  const percent = String(Math.round(scroll * 100)).padStart(2, '0');
+  if (queries.percent.textContent !== percent) queries.percent.textContent = percent;
   queries.progress.style.transform = 'scaleX(' + scroll + ')';
   const era = chapters.findLastIndex((chapter) => progress + .0001 >= chapter.start);
   if (era !== previousChapter) {

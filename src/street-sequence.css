@@ -15,5 +15,5 @@
 
 .stage[data-phase="06"] #view-type { color: var(--ivory); }
 @media (max-height: 540px) {
-  .scale i { height: 5px; }
+  .scale i { height: 7px; }
 }
