@@ -30,7 +30,21 @@ button { font: inherit; }
     radial-gradient(ellipse at 65% 50%, #2e466e 0, #1c2c4d 34%, transparent 67%),
     linear-gradient(150deg, #101a32 30%, #141f38 70%, #0b1328);
 }
-#scene canvas { display: block; width: 100%; height: 100%; }
+#scene canvas { touch-action: pan-y pinch-zoom; display: block; width: 100%; height: 100%; }
+#scene canvas[data-orbit] { cursor: grab; }
+#scene canvas[data-dragging] { cursor: grabbing; }
+.site-trace {
+  position: absolute;
+  width: clamp(170px, 28vw, 490px);
+  top: 11%;
+  left: 4%;
+  fill: none;
+  stroke: var(--gold);
+  pointer-events: none;
+}
+@media (max-width: 730px) {
+  .site-trace { width: 45%; left: 5%; top: 10%; }
+}
 .stage-grain {
   pointer-events: none;
   z-index: 1;

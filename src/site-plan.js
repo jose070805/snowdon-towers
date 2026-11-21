@@ -12,11 +12,43 @@ const layers = [
   { key: 'locator', from: .051, to: .10, ink: 1 },
 ];
 
+// Reuse the registered C101 strokes and its sheet bearing for the marginal trace.
+function makeSiteTrace(site, footprints) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.classList.add('site-trace');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.style.opacity = 0;
+  const { bearing, x, z } = site.camera;
+  const group = document.createElementNS(ns, 'g');
+  group.setAttribute('transform', 'rotate(' + bearing * 180 / Math.PI + ') translate(' + -x + ' ' + -z + ')');
+  svg.append(group);
+  function addPath(segments, opacity) {
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', segments.map(([a,b,c,d]) => 'M' + a + ' ' + b + 'L' + c + ' ' + d).join(''));
+    path.setAttribute('opacity', opacity);
+    group.append(path);
+  }
+  for (const { key, ink } of layers) {
+    if (key !== 'locator') addPath(site.layers[key], ink);
+  }
+  const outline = [];
+  for (let i = 0; i + 5 < footprints.length; i += 6) {
+    outline.push([footprints[i], footprints[i + 2], footprints[i + 3], footprints[i + 5]]);
+  }
+  addPath(outline, .85);
+  document.getElementById('scene').before(svg);
+  const box = svg.getBBox();
+  svg.setAttribute('viewBox', [box.x - 2, box.y - 2, box.width + 4, box.height + 4].join(' '));
+  return svg;
+}
+
 export async function makeSitePlan(scene, footprints) {
   const response = await fetch(siteUrl);
   if (!response.ok) throw new Error(`Site plan request returned ${response.status}`);
   const site = await response.json();
   const officePlate = document.querySelector('.drawing-sheet');
+  const trace = makeSiteTrace(site, footprints);
   const datasets = { ...site.layers, locator: Array.from(footprints) };
   const byPhase = layers.map((layer) => {
     const geometry = layer.key === 'locator'
@@ -31,6 +63,7 @@ export async function makeSitePlan(scene, footprints) {
     focus: site.camera,
     apply(progress) {
       const fade = 1 - smooth(progress, .135, .273);
+      trace.style.opacity = (.26 * smooth(progress, .16, .34)).toFixed(3);
       officePlate.style.setProperty('--sheet-opacity', fade);
       let tip = null;
       for (const { key, from, to, ink, pencil } of byPhase) {

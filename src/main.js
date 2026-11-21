@@ -1,3 +1,4 @@
+import { makeDragOrbit } from './drag-orbit.js';
 import { makeAnnotations } from './annotations.js';
 import * as THREE from 'three';
 import { gsap } from 'gsap';
@@ -186,7 +187,7 @@ function motionFor(group, progress, explosion) {
   return result;
 }
 
-function pose(camera, progress, width, height, site, street) {
+function pose(camera, progress, width, height, site, street, offset) {
   const mobile = width < 730;
   const push = smooth(progress, .116, .282);
   const tilt = smooth(progress, .284, .477);
@@ -197,8 +198,8 @@ function pose(camera, progress, width, height, site, street) {
   const axonPhi = mix(.018, 1.065, tilt) - garden * .247 + explosion * .065;
   const axonBearing = mix(site.bearing, mix(-.045, -.66, tilt), push) + orbit * .94
     - garden * .51 + turn * .285 - explosion * .31;
-  const phi = mix(axonPhi, mix(1.74, Math.PI / 2, headOn), approach);
-  const bearing = mix(axonBearing, mix(.26, 0, headOn), approach);
+  const phi = mix(axonPhi, mix(1.74, Math.PI / 2, headOn), approach) + offset.tilt;
+  const bearing = mix(axonBearing, mix(.26, 0, headOn), approach) + offset.bearing;
   const focus = new THREE.Vector3(
     mix(site.x, mix(1, -1, tilt), push) + 9 * explosion,
     (33.5 + 8 * garden) * tilt + 43 * explosion,
@@ -230,7 +231,10 @@ function pose(camera, progress, width, height, site, street) {
 
 let previousChapter = -1;
 function updateEditorial(progress, street, scroll) {
-  const tick = Math.min(tickCount - 1, Math.floor(scroll * tickCount));
+  const era = chapters.findLastIndex(chapter => progress >= chapter.start);
+  const first = Math.round(scrollAt(chapters[era].start) * tickCount);
+  const end = era + 1 < chapters.length ? Math.round(scrollAt(chapters[era + 1].start) * tickCount) : tickCount;
+  const tick = clamp(Math.floor(scroll * tickCount), first, end - 1);
   if (tick !== currentTick) {
     ticks[currentTick]?.classList.remove('current');
     ticks[tick].classList.add('current');
@@ -239,7 +243,6 @@ function updateEditorial(progress, street, scroll) {
   const percent = String(Math.round(scroll * 100)).padStart(2, '0');
   if (queries.percent.textContent !== percent) queries.percent.textContent = percent;
   queries.progress.style.transform = 'scaleX(' + scroll + ')';
-  const era = chapters.findLastIndex((chapter) => progress + .0001 >= chapter.start);
   if (era !== previousChapter) {
     previousChapter = era;
     const chapter = chapters[era];
@@ -306,6 +309,7 @@ async function initialize() {
   let pendingFrame = 0;
   let position = 0;
   let previousPosition = -1;
+  const dragOrbit = makeDragOrbit(renderer.domElement, () => queueRender(true));
   function render() {
     pendingFrame = 0;
     previousPosition = position;
@@ -314,7 +318,7 @@ async function initialize() {
     const p = Math.min(storyPosition / earlySequenceScale, .913);
     const street = streetSequence(storyPosition);
     const { explosion } = street;
-    const { tilt, spanWidth, push } = pose(camera, p, width, height, site.focus, street);
+    const { tilt, spanWidth, push } = pose(camera, p, width, height, site.focus, street, dragOrbit(storyPosition, motionPreference.matches));
     const entity = smooth(p, .482, .577);
     solid.value = entity;
     lamp.value = smooth(p, .776, .810);
