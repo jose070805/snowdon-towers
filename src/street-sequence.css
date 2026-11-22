@@ -1,5 +1,5 @@
 @media (prefers-reduced-motion: no-preference) {
-  .scroll-space { height: clamp(11231.383px, 1699.293vh, 18627.395px); }
+  .scroll-space { height: clamp(10038.049px, 1518.743vh, 16648.234px); }
 }
 
 .section-datum {
@@ -13,6 +13,7 @@
   pointer-events: none;
 }
 
+.mezzanine-datum { padding: 3px 5px; background: var(--night); }
 .stage[data-phase="06"] #view-type { color: var(--ivory); }
 @media (max-height: 540px) {
   .scale i { height: 7px; }
@@ -35,12 +36,12 @@
 .floor-nav button:focus-visible { outline: 1px solid var(--gold); }
 @media (max-width: 730px), (max-height: 490px) {
   .floor-nav { left: var(--edge); right: var(--edge); top: auto; bottom: 77px;
-    transform: none; grid-template-columns: repeat(10, 1fr); }
-  .floor-nav button { min-width: 0; min-height: 38px; padding: 2px; font-size: 11px; text-align: center; }
+    transform: none; grid-auto-flow: column; grid-auto-columns: 1fr; }
+  .floor-nav button { white-space: nowrap; min-width: 0; min-height: 38px; padding: 2px; font-size: 11px; text-align: center; }
   .floor-nav button::after { display: block; margin: 5px auto 0; }
   .section-datum { font-size: 9px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .scroll-space { height: 571.061vh; }
+  .scroll-space { height: 510.386vh; }
 }

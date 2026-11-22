@@ -270,7 +270,7 @@ function updateEditorial(progress, street, scroll, page) {
   const title = motionPreference.matches ? Number(era === 0) : 1 - smooth(progress, .064, chapters[1].start);
   masthead.style.opacity = title;
   masthead.style.visibility = title === 0 ? 'hidden' : 'visible';
-  if (era === 7 && street.overhead > .5) queries['view-type'].textContent = page.active.code + ' / ' + page.active.source;
+  if (era === 7 && street.overhead > .5) queries['view-type'].textContent = page.active.heading;
   else if (era === 7 && street.explosion >= .55) queries['view-type'].textContent = 'EXPLODED / DISPLAY GROUPS';
   else if (era === 7 && street.study > .5) queries['view-type'].textContent = 'A301 / LEVEL ASSEMBLIES';
   else if (era === 7) queries['view-type'].textContent = chapters[era].view;
@@ -421,7 +421,7 @@ async function initialize() {
       : motionFor({ kind: 'roof', floor: band, pivot: 0 }, p, explosion)) : 0;
     stageElement.dataset.plantVolumes = plants;
     elevations(street);
-    applyStudy?.apply(street, page, (kind, floor, explosion) =>
+    applyStudy?.apply(street, page, camera, width, height, (kind, floor, explosion) =>
       motionFor({ kind, floor, pivot: 0 }, p, explosion));
     sectionDatums(street.datum, camera, width, height);
     updateEditorial(story, street, position, page);

@@ -18,8 +18,8 @@ function levelNavigation(jump) {
   const buttons = floors.map(floor => {
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = floor.code;
-    button.setAttribute('aria-label', '俯视 ' + floor.code);
+    button.textContent = floor.label;
+    button.setAttribute('aria-label', '俯视 ' + floor.label);
     button.addEventListener('click', () => jump(floor.stop));
     nav.append(button);
     return button;
@@ -43,50 +43,56 @@ export async function makeSemanticStudy(scene, model, landscape, jump) {
   root.visible = false;
   scene.add(root);
 
+  const plates = new THREE.Group();
+  root.add(plates);
+  const gold = new THREE.LineBasicMaterial({color: '#dfaf64', transparent: true, depthWrite: false});
   const layers = floors.map(floor => {
-    const plate = new THREE.Group(), plan = new THREE.Group();
-    root.add(plate, plan);
-    const ink = new THREE.LineBasicMaterial({color: '#dfaf64', transparent: true, depthWrite: false});
-    const detail = ink.clone();
-    const fine = ink.clone();
-    const cut = ink.clone();
+    const plan = new THREE.Group();
+    root.add(plan);
+    const detail = gold.clone(), fine = gold.clone(), cut = gold.clone();
     const bounds = new THREE.Box3();
     const drawing = drawings.plans[floor.code];
-    if (drawing) {
-      for (const [index, coords] of drawing.ink.entries()) {
-        const positions = [];
-        for (let i = 0; i < coords.length; i += 2) {
-          positions.push(coords[i] / drawings.unitsPerFoot, 0, coords[i+1] / drawings.unitsPerFoot);
-        }
-        const geometry = meshGeometry(new Float32Array(positions));
-        geometry.computeBoundingBox();
-        bounds.union(geometry.boundingBox);
-        plan.add(new THREE.LineSegments(geometry, [detail, fine, cut][index]));
+    for (const [index, coords] of drawing.ink.entries()) {
+      const positions = new Float32Array(coords.length * 1.5);
+      for (let i = 0, vertex = 0; i < coords.length; i += 2, vertex += 3) {
+        positions[vertex] = coords[i] / drawings.unitsPerFoot;
+        positions[vertex+2] = coords[i+1] / drawings.unitsPerFoot;
       }
+      const geometry = meshGeometry(positions);
+      geometry.computeBoundingBox();
+      bounds.union(geometry.boundingBox);
+      plan.add(new THREE.LineSegments(geometry, [detail, fine, cut][index]));
     }
-    const datum = meta.datums[floor.levels[0]];
-    // Plans sit at the separated floor height during the handoff to top view.
+    const datum = meta.datums[floor.level];
     plan.position.y = datum ? datum.zFt + 6 + datum.liftFt : -16 - 11/12 + 6;
-    return {plate, plan, ink, detail, fine, cut, bounds, drawing};
+    return {plan, detail, fine, cut, bounds};
   });
+  const mezzanine = document.createElement('span');
+  mezzanine.className = 'section-datum mezzanine-datum';
+  // A301 (P1 p.14) confirms the M1 datum, 5′–6″ above Block 43.
+  mezzanine.textContent = 'M1  5′–6″';
+  mezzanine.hidden = true;
+  document.querySelector('.stage').append(mezzanine);
+  const mezzanineId = 828874;
+  const anchor = new THREE.Vector3();
+  const projected = new THREE.Vector3();
+  let mezzanineLine;
   const batches = meta.batches.map(({level, kind, floor, edgeRange: [offset, length]}) => {
-    const layer = layers[floors.findIndex(f => f.levels.includes(level))];
     const strokes = Float32Array.from({length}, (_, i) =>
       payload.getInt16((offset + i) * 2, true) / model.meta.quantization);
-    const geometry = meshGeometry(strokes);
-    const line = new THREE.LineSegments(geometry, layer.ink);
-    layer.plate.add(line);
-    if (!layer.drawing) {
-      geometry.computeBoundingBox();
-      layer.bounds.union(geometry.boundingBox);
+    const line = new THREE.LineSegments(meshGeometry(strokes), gold);
+    plates.add(line);
+    if (level === mezzanineId) {
+      for (let i = 0; i < strokes.length; i += 3) {
+        if (!i || strokes[i] < anchor.x) anchor.fromArray(strokes, i);
+      }
+      mezzanineLine = line;
     }
     return {line, kind, floor, lift: meta.datums[level].liftFt};
   });
-  // Seven verified R2 fixtures reuse the original feature edges in this line-only pass.
-  const roof = layers[floors.findIndex(f => f.code === 'R2')];
   for (const {geometry, band, lift} of landscape.supportedEdges(meta.roofSupports)) {
-    const line = new THREE.LineSegments(geometry, roof.ink);
-    roof.plate.add(line);
+    const line = new THREE.LineSegments(geometry, gold);
+    plates.add(line);
     batches.push({line, kind: 'roof', floor: band, lift});
   }
 
@@ -100,21 +106,32 @@ export async function makeSemanticStudy(scene, model, landscape, jump) {
       const a = frames[from], b = frames[to];
       return Object.fromEntries(Object.keys(a).map(k => [k, THREE.MathUtils.lerp(a[k], b[k], blend)]));
     },
-    apply(street, page, offset) {
+    apply(street, page, camera, width, height, offset) {
       const {study, split, explosion, overhead} = street;
       root.visible = study > .001;
       navigation(study >= .96, overhead >= .99 ? page.active : null);
+      const plateVisibility = study * (1 - overhead);
+      mezzanine.hidden = plateVisibility < .24 || !mezzanineLine;
       if (!root.visible) return;
+      gold.opacity = .94 * plateVisibility;
+      plates.visible = gold.opacity > .001;
       for (const {line, kind, floor, lift} of batches) {
         const p = offset(kind, floor, explosion);
         line.position.set(p.x, p.y + lift * split, p.z);
       }
+      if (!mezzanine.hidden) {
+        projected.copy(anchor).add(mezzanineLine.position).project(camera);
+        const x = (.5 + projected.x * .5) * width;
+        const y = (.5 - projected.y * .5) * height;
+        mezzanine.style.left = THREE.MathUtils.clamp(x - 18, 40, width - mezzanine.offsetWidth - 16) + 'px';
+        mezzanine.style.top = (y + 15) + 'px';
+        mezzanine.style.transform = 'translateY(-50%)';
+        mezzanine.style.opacity = THREE.MathUtils.smoothstep(plateVisibility, .24, .84);
+      }
       layers.forEach((layer, i) => {
         const weight = Number(i === page.from) * (1 - page.blend) + Number(i === page.to) * page.blend;
         const isolated = weight * overhead;
-        layer.ink.opacity = study * (.94 * (1 - overhead) + (layer.drawing ? 0 : .94 * isolated));
-        layer.plate.visible = layer.ink.opacity > .001;
-        layer.plan.visible = Boolean(layer.drawing && isolated > .001);
+        layer.plan.visible = isolated > .001;
         layer.detail.opacity = .38 * isolated;
         layer.fine.opacity = .65 * isolated;
         layer.cut.opacity = .96 * isolated;

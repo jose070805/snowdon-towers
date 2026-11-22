@@ -28,8 +28,9 @@
 
 ### 逐层俯视与图纸来源
 
-楼层停靠点自上而下为 R3、R2、R1、L5、L4、L3、L2、M1、L1 和 P。每个按钮跳到该层滚动停留区间的中心，进度仍由页面的实际滚动位置驱动。R1–R3 来自各自的建筑几何及已经核证的 R2 花架边线，M1 只能显示现存的局部夹层板。
 
-住宅层、首层与车库使用《Snowdon Towers Sample Architectural2.pdf》p.1–6 的 A100–A105。以 1、8、A、E 轴核对各页比例和共同原点，截取建筑范围内的主体及细部线条。页面显示筛选后的矢量图，不含完整尺寸、注释和图签。A100 提供停车层二维依据；现有网页模型没有完整车库板。A106/G106 的屋顶综合视图不能分别代表 R1、R2、R3。核实每一处屋顶支撑和补齐 M1 的完整室内仍需额外资料。
+俯视停靠点依次为屋顶总览、L5、L4、L3、L2、L1 和 P。楼层按钮与滚轮共用滚动时间轴。M1（5′–6″）仅在语义分层中随原有夹层板标注，标高参考 P1 p.14 的 A301 剖面。
 
-本地复算线稿可运行 `python tools/prepare_floor_plans.py "<本地 Architectural2.pdf 路径>"`（PyMuPDF）。输出 `assets/floor-plans.sdp` 保存图号、来源页码和模型坐标下的量化线段。原始 PDF 保留在本地资料目录。
+屋顶总览使用《Snowdon Towers Sample Architectural1.pdf》p.12 A106。L1、L3、L4、L5 分别使用该文件 p.7、9、10、11 的整栋平面。p.8 A102 用于核对 L2，网页继续使用原 P2 p.3 的线稿。P 保留 P2 p.1 的 A100，仅有二维图纸。网页提供已配准的建筑线稿，完整尺寸、房间标签、分区色块和图签请查原图。
+
+运行 `python tools/prepare_floor_plans.py "<Architectural1.pdf>" "<Architectural2.pdf>"`（需 PyMuPDF）可重建楼层线稿。输出包含图号、PDF 页码和模型坐标下的量化线段。

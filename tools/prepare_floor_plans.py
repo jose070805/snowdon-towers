@@ -1,4 +1,4 @@
-"""Extract registered architectural strokes from P2 A100–A105. Original PDFs stay local."""
+"""Extract registered floor plans from the two locally exported drawing sets."""
 import argparse
 import gzip
 import json
@@ -20,7 +20,7 @@ def convert(point):
     return ((point.x - ORIGIN[0]) / SCALE + 18, (point.y - ORIGIN[1]) / SCALE + 5)
 
 
-def extract(page, sheet, grids):
+def check_registration(page, sheet, grids):
     words = page.get_text("words")
     assert sheet in {w[4] for w in words}, f"Missing {sheet} on expected page"
     for key, axis in (("1", 0), ("8", 0), ("A", 1), ("E", 1)):
@@ -28,25 +28,29 @@ def extract(page, sheet, grids):
         target = ORIGIN[axis] + (1 if axis == 0 else -1) * SCALE * coord
         assert any(w[4] == key and abs((w[axis] + w[axis+2]) / 2 - target) < 1.0
                    for w in words), f"{sheet}: grid {key} did not register"
+def extract(page, sheet, grids, *, overview=False):
+    check_registration(page, sheet, grids)
     # Skip engineering axes when a thin stroke coincides with a project grid.
     xs = [g["points"][0][0] + 18 for g in grids.values()
           if abs(g["points"][0][0] - g["points"][-1][0]) < .001]
     zs = [5 - g["points"][0][1] for g in grids.values()
           if abs(g["points"][0][1] - g["points"][-1][1]) < .001]
     lines = {}
+    max_gray, max_weight, min_detail = (.69, 1.85, .14) if overview else (.55, 1.34, .45)
+    west, east, north, south = (-95, 92, -54, 43) if overview else (-95, 92, -44, 49 if sheet == "A100" else 39)
     for path in page.get_drawings():
         color = path.get("color")
         width = path.get("width") or 0
-        if not color or max(color) > .55 or max(color)-min(color) > .02 or not .23 <= width <= 1.34:
+        if not color or max(color) > max_gray or max(color)-min(color) > .02 or not .23 <= width <= max_weight:
             continue
         for a, b in path_segments(path):
             pair = [convert(a), convert(b)]
-            if not all(-95 < x < 92 and -44 < z < (49 if sheet == "A100" else 39) for x, z in pair):
+            if not all(west < x < east and north < z < south for x, z in pair):
                 continue
             if width < .30:
                 (x, z), (xx, zz) = pair
                 length = ((xx-x)**2 + (zz-z)**2)**.5
-                if not .45 <= length <= 24:
+                if not min_detail <= length <= 24:
                     continue
                 if abs(x-xx) < .01 and any(abs(x-g) < .02 for g in xs):
                     continue
@@ -75,12 +79,26 @@ def extract(page, sheet, grids):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("pdf", type=Path)
+    parser.add_argument("reference_pdf", type=Path, help="Architectural1.pdf, pages 7–12")
+    parser.add_argument("baseline_pdf", type=Path, help="Architectural2.pdf, unchanged A100 and A102")
     args = parser.parse_args()
     grids = {g["name"]: g for g in json.loads((ROOT/"assets/revit-source/geometry.json").read_bytes())["grids"]}
-    with fitz.open(args.pdf) as doc:
-        plans = {code: extract(doc[i], f"A{100+i}", grids)
-                 for i, code in enumerate(("P", "L1", "L2", "L3", "L4", "L5"))}
+    with fitz.open(args.baseline_pdf) as doc:
+        plans = {"P": extract(doc[0], "A100", grids), "L2": extract(doc[2], "A102", grids)}
+    reference = {
+        "L1": (7, "A101", "First Floor Plan"),
+        "L3": (9, "A103", "Third Floor Plan"),
+        "L4": (10, "A104", "Fourth Floor Plan"),
+        "L5": (11, "A105", "Fifth Floor Plan"),
+        "ROOF": (12, "A106", "Roof Plan"),
+    }
+    with fitz.open(args.reference_pdf) as doc:
+        check_registration(doc[7], "A102", grids)
+        for code, (page, sheet, title) in reference.items():
+            source = doc[page - 1]
+            assert title in source.get_text().splitlines()
+            plans[code] = extract(source, sheet, grids, overview=True)
+            plans[code]["source"] = args.reference_pdf.name
     out = ROOT/"assets/floor-plans.sdp"
     out.write_bytes(gzip.compress(json.dumps({"unitsPerFoot": 64, "plans": plans},
                                               separators=(",", ":")).encode(), mtime=0))

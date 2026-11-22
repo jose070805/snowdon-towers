@@ -3,17 +3,16 @@ import { MathUtils } from 'three';
 const firstPlan = 1.16;
 const interval = .068;
 export const floors = [
-  ['R3', [696520], 'ROOF CAPS'],
-  ['R2', [613075, 1925045], 'ROOF PLATFORM'],
-  ['R1', [964417], 'ROOF TERRACE'],
-  ['L5', [593179], 'A105'],
-  ['L4', [593178], 'A104'],
-  ['L3', [593147], 'A103'],
-  ['L2', [593177], 'A102'],
-  ['M1', [828874], 'PARTIAL MEZZANINE'],
-  ['L1', [593176, 633454, 593142], 'A101'],
-  ['P', [], 'A100 / DRAWING ONLY'],
-].map(([code, levels, source], index) => ({code, levels, source, stop: firstPlan + interval * index}));
+  ['ROOF', 613075, 'A106 / ROOF OVERVIEW', '屋顶总览'],
+  ['L5', 593179, 'A105'],
+  ['L4', 593178, 'A104'],
+  ['L3', 593147, 'A103'],
+  ['L2', 593177, 'A102'],
+  ['L1', 593176, 'A101'],
+  ['P', null, 'A100 / DRAWING ONLY'],
+].map(([code, level, source, label = code], index) => ({
+  code, level, heading: label === code ? code + ' / ' + source : source, label, stop: firstPlan + interval * index,
+}));
 
 export const storyEnd = floors.at(-1).stop + .024;
 
