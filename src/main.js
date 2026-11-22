@@ -1,3 +1,4 @@
+import { floorFrame, storyEnd } from './floor-sequence.js';
 import { makeSemanticStudy } from './semantic-study.js';
 import { makeDragOrbit } from './drag-orbit.js';
 import { makeAnnotations } from './annotations.js';
@@ -27,7 +28,7 @@ const chapters = [
   { id: '04', label: '屋顶景观', note: '从退台边线到空中花园', view: 'G106 / ROOF LANDSCAPE', start: .600, stop: .810 },
   { id: '05', label: '降至街道', note: '沿街看向历史拱窗', view: 'SOUTH / STREET', start: .653, stop: .768 },
   { id: '06', label: '立面对照', note: '既有与拟建南立面沿共同轴网叠合', view: 'A200 → A201 / SOUTH', start: .776, stop: .820 },
-  { id: '07', label: '分层分析', note: '从 A301 标高参照进入分组解构', view: 'A301 / SECTION DATUMS', start: .875, stop: 1.119 },
+  { id: '07', label: '分层分析', note: '爆炸轴测、语义分层与逐层俯视', view: 'A301 / SECTION DATUMS', start: .875, stop: 1.070 },
 ];
 for (const chapter of chapters.slice(0, 5)) {
   chapter.start *= earlySequenceScale;
@@ -39,7 +40,6 @@ const holds = [
   { at: .0832, length: .028 }, { at: .648, length: .038 },
   { at: .818, length: .029 }, { at: .916, length: .029 },
 ];
-const storyEnd = 1.12;
 const scrollLength = storyEnd + holds.reduce((total, hold) => total + hold.length, 0);
 function storyAt(scroll) {
   let time = scroll * scrollLength;
@@ -65,12 +65,13 @@ const queries = Object.fromEntries(
 );
 const masthead = document.querySelector('.masthead');
 
+function scrollToStory(time, behavior = 'instant') {
+  const distance = document.querySelector('.scroll-space').offsetHeight;
+  window.scrollTo({top: Math.round(distance * scrollAt(time)), behavior});
+}
 for (const button of controls) {
-  button.addEventListener('click', () => {
-    const chapter = chapters[Number(button.dataset.stage)];
-    const distance = document.querySelector('.scroll-space').offsetHeight;
-    window.scrollTo({ top: Math.round(distance * scrollAt(chapter.stop)), behavior: motionPreference.matches ? 'instant' : 'smooth' });
-  });
+  button.addEventListener('click', () => scrollToStory(chapters[Number(button.dataset.stage)].stop,
+    motionPreference.matches ? 'instant' : 'smooth'));
 }
 
 function makeAxisLines(grids) {
@@ -189,7 +190,7 @@ function motionFor(group, progress, explosion) {
   return result;
 }
 
-function pose(camera, progress, width, height, site, street, offset) {
+function pose(camera, progress, width, height, site, street, offset, plan) {
   const mobile = width < 730;
   const push = smooth(progress, .116, .282);
   const tilt = smooth(progress, .284, .477);
@@ -201,14 +202,23 @@ function pose(camera, progress, width, height, site, street, offset) {
   const axonPhi = mix(.018, 1.065, tilt) - garden * .247 + explosion * .065 + split * .22;
   const axonBearing = mix(site.bearing, mix(-.045, -.66, tilt), push) + orbit * .94
     - garden * .51 + turn * .285 - explosion * .31;
-  const phi = mix(axonPhi, mix(1.74, Math.PI / 2, headOn), approach) + offset.tilt;
-  const bearing = mix(axonBearing, mix(.26, 0, headOn), approach) + offset.bearing;
+  let phi = mix(axonPhi, mix(1.74, Math.PI / 2, headOn), approach) + offset.tilt;
+  let bearing = mix(axonBearing, mix(.26, 0, headOn), approach) + offset.bearing;
   const focus = new THREE.Vector3(
     mix(site.x, mix(1, -1, tilt), push) + 9 * explosion,
     (33.5 + 8 * garden) * tilt + 43 * explosion + 50 * split,
     mix(site.z, 1, push) - 4 * garden + 11 * explosion,
   );
   focus.lerp(new THREE.Vector3(1, 38, 15), approach);
+  const top = plan ? street.overhead : 0;
+  if (top) {
+    phi = mix(phi, 0, top);
+    bearing = mix(bearing, 0, top);
+    focus.lerp(new THREE.Vector3(plan.x, plan.y, plan.z), top);
+  }
+  // Give lookAt an explicit drawing-up direction at the orthographic pole.
+  camera.up.set(0, 1, 0);
+  if (top) camera.up.set(-Math.cos(phi) * Math.sin(bearing), Math.sin(phi), -Math.cos(phi) * Math.cos(bearing));
   const distance = mix(480, 154, approach);
   camera.position.set(
     focus.x + Math.sin(phi) * Math.sin(bearing) * distance,
@@ -217,13 +227,15 @@ function pose(camera, progress, width, height, site, street, offset) {
   );
   camera.lookAt(focus);
   const ratio = width / height;
-  const modelSpan = mix(mix(site.width * (mobile ? .84 : 1), mix(268, 256, tilt), push) + explosion * 17 + split * (mobile ? 96 : 22) + 36 * datumMargin, 246, approach);
+  const modelSpan = mix(mix(site.width * (mobile ? .84 : 1), mix(268, 256, tilt), push) + explosion * 17 + split * (mobile ? 25 : 22) + 36 * datumMargin, 246, approach);
   const heightSpan = mix(mix(site.height, mix(145, 171, tilt), push) + explosion * 63 + split * 88, mobile ? 105 : 139, approach);
-  const spanWidth = Math.max(modelSpan * (mobile ? .98 : 1), heightSpan * ratio);
+  let spanWidth = Math.max(modelSpan * (mobile ? .98 : 1), heightSpan * ratio);
+  if (top) spanWidth = mix(spanWidth, Math.max(plan.width * (mobile ? 1.22 : 1.42),
+    plan.depth * ratio * (mobile ? 1.70 : 1.38)), top);
   const spanHeight = spanWidth / ratio;
   const translateX = mobile ? mix(mix(.027, .045, push), .025, approach) : mix(.089, .073, push) - explosion * .012;
-  const translateY = mobile ? -.016 : mix(.025, -.065, push) + tilt * .076 + explosion * .005;
-  const centeredX = translateX - split * (mobile ? .11 : .10) - .075 * datumMargin;
+  const translateY = mix(mobile ? -.016 : mix(.025, -.065, push) + tilt * .076 + explosion * .005, mobile ? .06 : 0, top);
+  const centeredX = mix(translateX - split * (mobile ? .04 : .08) - .075 * datumMargin, mobile ? .015 : -.025, top);
   camera.left = (-.5 - centeredX) * spanWidth;
   camera.right = (.5 - centeredX) * spanWidth;
   camera.top = (.5 - translateY) * spanHeight;
@@ -234,7 +246,7 @@ function pose(camera, progress, width, height, site, street, offset) {
 }
 
 let previousChapter = -1;
-function updateEditorial(progress, street, scroll) {
+function updateEditorial(progress, street, scroll, page) {
   const era = chapters.findLastIndex(chapter => progress >= chapter.start);
   const first = Math.round(scrollAt(chapters[era].start) * tickCount);
   const end = era + 1 < chapters.length ? Math.round(scrollAt(chapters[era + 1].start) * tickCount) : tickCount;
@@ -258,7 +270,8 @@ function updateEditorial(progress, street, scroll) {
   const title = motionPreference.matches ? Number(era === 0) : 1 - smooth(progress, .064, chapters[1].start);
   masthead.style.opacity = title;
   masthead.style.visibility = title === 0 ? 'hidden' : 'visible';
-  if (era === 7 && street.explosion >= .55) queries['view-type'].textContent = 'EXPLODED / DISPLAY GROUPS';
+  if (era === 7 && street.overhead > .5) queries['view-type'].textContent = page.active.code + ' / ' + page.active.source;
+  else if (era === 7 && street.explosion >= .55) queries['view-type'].textContent = 'EXPLODED / DISPLAY GROUPS';
   else if (era === 7 && street.study > .5) queries['view-type'].textContent = 'A301 / LEVEL ASSEMBLIES';
   else if (era === 7) queries['view-type'].textContent = chapters[era].view;
 }
@@ -276,9 +289,12 @@ async function initialize() {
   const drawing = { value: 0 };
   const wire = { value: 0 };
   const shell = { value: 0 };
+  const gardens = new THREE.Group();
+  gardens.name = 'landscape';
+  scene.add(gardens);
   const [site, landscape, elevations] = await Promise.all([
     makeSitePlan(scene, model.read(model.meta.plan.shell)),
-    makeLandscape(scene, drawing, wire, studyMask),
+    makeLandscape(gardens, drawing, wire, studyMask),
     makeSouthElevations(scene),
   ]);
   const lamp = { value: 0 };
@@ -286,6 +302,7 @@ async function initialize() {
   const annotations = makeAnnotations(groups);
   const sectionDatums = makeSectionDatums(scene, stageElement);
   const ground = makeGround();
+  ground.name = 'ground';
   scene.add(ground);
 
   const axis = makeAxisLines(model.meta.grids);
@@ -319,7 +336,7 @@ async function initialize() {
   let studyRequested = false;
   function requestStudy() {
     studyRequested = true;
-    makeSemanticStudy(scene, model, landscape).then(apply => {
+    makeSemanticStudy(scene, model, landscape, scrollToStory).then(apply => {
       applyStudy = apply;
       stageElement.dataset.study = 'ready';
       queueRender(true);
@@ -337,15 +354,22 @@ async function initialize() {
     let storyPosition = story;
     if (motionPreference.matches) {
       storyPosition = chapters[chapters.findLastIndex(chapter => story >= chapter.start)].stop;
-      if (story >= .875 && story < 1.066) storyPosition = story < .939 ? .916 : 1.008;
+      if (story >= .875) {
+        if (story < .923) storyPosition = .916;
+        else if (story < 1.012) storyPosition = .981;
+        else if (story < 1.115) storyPosition = 1.072;
+        else storyPosition = floorFrame(story).active.stop;
+      }
     }
     const p = Math.min(storyPosition / earlySequenceScale, .913);
     const street = streetSequence(storyPosition);
     if (storyPosition >= .74 && !studyRequested) requestStudy();
-    if (!applyStudy) { street.study = 0; street.split = 0; }
+    const page = floorFrame(storyPosition);
+    const plan = applyStudy?.frame(page);
+    const context = street.context;
     studyMask.value = street.study;
     const { explosion } = street;
-    const { tilt, spanWidth, push } = pose(camera, p, width, height, site.focus, street, dragOrbit(storyPosition, motionPreference.matches));
+    const { tilt, spanWidth, push } = pose(camera, p, width, height, site.focus, street, dragOrbit(storyPosition, motionPreference.matches), plan);
     const entity = smooth(p, .482, .577);
     solid.value = entity;
     lamp.value = smooth(p, .776, .810);
@@ -373,14 +397,15 @@ async function initialize() {
       group.node.position.set(change.x, change.y, change.z);
       group.node.scale.y = Math.max(.003, change.rise);
     }
-    ground.material.uniforms.opacity.value = mix(.92, .72, tilt) * push * (1 - drawing.value * .88);
-    ghostAxes.material.opacity = mix(.23, .08, tilt) * push * (1 - drawing.value);
-    axisTips.material.opacity = smooth(p, .185, .261) * .42 * (1 - tilt * .85);
+    ground.visible = ghostAxes.visible = axisTips.visible = gardens.visible = context > .001;
+    ground.material.uniforms.opacity.value = context * mix(.92, .72, tilt) * push * (1 - drawing.value * .88);
+    ghostAxes.material.opacity = context * mix(.23, .08, tilt) * push * (1 - drawing.value);
+    axisTips.material.opacity = context * smooth(p, .185, .261) * .42 * (1 - tilt * .85);
     const pageInk = 1 - smooth(p, .3, .476) * .72;
-    let current = site.apply(p);
+    let current = site.apply(p, context);
     for (const { pencil, start, end, ink } of plot) {
       const fraction = clamp((p - start) / (end - start), 0, 1);
-      if (pencil.apply(fraction, ink * pageInk * (1 - drawing.value))) current = pencil.tip;
+      if (pencil.apply(fraction, ink * pageInk * context * (1 - drawing.value))) current = pencil.tip;
     }
     cursor.visible = Boolean(current) && p < .290;
     if (cursor.visible) {
@@ -389,18 +414,21 @@ async function initialize() {
       cursor.quaternion.copy(camera.quaternion);
       cursor.scale.setScalar(Math.max(1, spanWidth / 290));
     }
-    guides.visible = explosion > .005;
-    guides.material.opacity = explosion * .58;
-    const plants = landscape.apply(p, (band) => band < 0
+    guides.visible = explosion * context > .005;
+    guides.material.opacity = explosion * context * .58;
+    const plants = gardens.visible ? landscape.apply(p, (band) => band < 0
       ? { x: 0, y: 0, z: 0 }
-      : motionFor({ kind: 'roof', floor: band, pivot: 0 }, p, explosion), street.split);
+      : motionFor({ kind: 'roof', floor: band, pivot: 0 }, p, explosion)) : 0;
     stageElement.dataset.plantVolumes = plants;
     elevations(street);
-    applyStudy?.(street, camera, width, height, (kind, floor, explosion) =>
+    applyStudy?.apply(street, page, (kind, floor, explosion) =>
       motionFor({ kind, floor, pivot: 0 }, p, explosion));
     sectionDatums(street.datum, camera, width, height);
-    updateEditorial(story, street, position);
-    if (stageElement.dataset.study === 'unavailable' && storyPosition >= .939 && storyPosition < 1.066) {
+    updateEditorial(story, street, position, page);
+    if (!applyStudy && storyPosition >= 1.025) {
+      queries['view-type'].textContent = 'LOADING / LEVEL DATA';
+    }
+    if (stageElement.dataset.study === 'unavailable' && storyPosition >= 1.025) {
       queries['view-type'].textContent = 'A301 / PLATE DATA UNAVAILABLE';
     }
     annotations(camera, width, height, storyPosition, motionPreference.matches);

@@ -1,5 +1,5 @@
 @media (prefers-reduced-motion: no-preference) {
-  .scroll-space { height: clamp(7277px, 1101vh, 12069px); }
+  .scroll-space { height: clamp(11231.383px, 1699.293vh, 18627.395px); }
 }
 
 .section-datum {
@@ -18,12 +18,29 @@
   .scale i { height: 7px; }
 }
 
-.plate-legend { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
-.plate-legend span, .plate-legend i { position: absolute; top: 0; left: 0; }
-.plate-legend span { color: var(--gold); font: 11px/1.15 var(--mono); white-space: nowrap; }
-.plate-legend em { margin-left: 7px; color: var(--ivory); font: 15px/1.1 "Architects Daughter", cursive; }
-.plate-legend i { height: 1px; background: #d9a34c70; transform-origin: left center; }
-@media (max-width: 730px) {
-  .plate-legend span, .section-datum { font-size: 9px; }
-  .plate-legend em { display: none; }
+.floor-nav {
+  position: absolute; z-index: 4; right: var(--edge); top: 51%; transform: translateY(-50%);
+  display: grid; justify-items: stretch;
+}
+.floor-nav[hidden] { display: none; }
+.floor-nav button {
+  min-width: 48px; min-height: clamp(24px, 3.8vh, 39px); padding: 2px 8px;
+  color: #d7d2c5; background: transparent; border: 0; text-align: right;
+  font: 12px/1 var(--mono); cursor: pointer;
+}
+.floor-nav button::after { content: ""; display: inline-block; vertical-align: middle; width: 8px;
+  height: 1px; margin-left: 8px; background: currentColor; opacity: .4; }
+.floor-nav button[aria-current="step"], .floor-nav button:hover { color: var(--gold); }
+.floor-nav button[aria-current="step"]::after { width: 17px; opacity: 1; }
+.floor-nav button:focus-visible { outline: 1px solid var(--gold); }
+@media (max-width: 730px), (max-height: 490px) {
+  .floor-nav { left: var(--edge); right: var(--edge); top: auto; bottom: 77px;
+    transform: none; grid-template-columns: repeat(10, 1fr); }
+  .floor-nav button { min-width: 0; min-height: 38px; padding: 2px; font-size: 11px; text-align: center; }
+  .floor-nav button::after { display: block; margin: 5px auto 0; }
+  .section-datum { font-size: 9px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-space { height: 571.061vh; }
 }

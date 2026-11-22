@@ -116,16 +116,11 @@ export async function makeLandscape(scene, drawing, wire, studyMask) {
   const sequenceOffset = { west: 0, center: .009, east: .017 };
 
   return {
-    bindRoofSupports(supports) {
-      for (const entry of elevatedDetails) {
-        const match = entry.ids.length === 1 && supports[entry.ids[0]];
-        if (match) {
-          entry.plateLift = match.liftFt;
-          entry.mesh.material.uniforms.studyMask = { value: 0 };
-        }
-      }
+    supportedEdges(supports) {
+      return elevatedDetails.filter(entry => entry.ids.length === 1 && supports[entry.ids[0]])
+        .map(entry => ({geometry: entry.line.geometry, band: entry.band, lift: supports[entry.ids[0]].liftFt}));
     },
-    apply(progress, offset, split) {
+    apply(progress, offset) {
       const lineVisibility = 1 - drawing.value * .90;
       for (const { group, mesh, pencil, band, kind, region } of surfaces) {
         const shift = sequenceOffset[region];
@@ -142,13 +137,13 @@ export async function makeLandscape(scene, drawing, wire, studyMask) {
       }
       for (const entry of elevatedDetails) {
         entry.line.material.color.copy(ivory).lerp(gold, wire.value);
-        entry.line.material.opacity = THREE.MathUtils.lerp(.30 * lineVisibility, .62, wire.value) * (entry.plateLift === undefined ? 1 - studyMask.value : 1);
+        entry.line.material.opacity = THREE.MathUtils.lerp(.30 * lineVisibility, .62, wire.value) * (1 - studyMask.value);
         const start = entry.kind === 'planter' ? .664 + sequenceOffset[entry.region] : .736 + plantSeed(entry.ids[0]) * .024;
         const height = smooth(progress, start, start + .039);
         const delta = offset(entry.band);
         entry.group.visible = height > .0001;
         entry.group.scale.y = Math.max(.0001, height);
-        entry.group.position.set(delta.x, delta.y + (entry.plateLift ?? 0) * split + entry.base * (1 - height), delta.z);
+        entry.group.position.set(delta.x, delta.y + entry.base * (1 - height), delta.z);
       }
       return drawPlants(progress, offset, lineVisibility);
     },

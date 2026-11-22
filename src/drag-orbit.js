@@ -53,7 +53,7 @@ export function makeDragOrbit(canvas, requestRender) {
     }
     previousTime = time;
     const roof = smoothstep(time, .480, .503) * (1 - smoothstep(time, .648, .653));
-    const south = smoothstep(time, .776, .789);
+    const south = smoothstep(time, .776, .789) * (1 - smoothstep(time, .995, 1.04));
     const axon = smoothstep(time, .875, .916);
     const enabled = roof > 0 || south > 0;
     if (active !== enabled) {

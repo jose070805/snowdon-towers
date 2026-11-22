@@ -16,9 +16,11 @@ export function streetSequence(progress) {
     comparison: smooth(progress, .803, .829),
     shell: smooth(progress, .890, .928),
     datum: smooth(progress, .890, .907) * (1 - smooth(progress, .929, .952)),
-    study: smooth(progress, .917, .945) * (1 - smooth(progress, 1.065, 1.104)),
-    split: smooth(progress, .938, .985) * (1 - smooth(progress, 1.031, 1.094)),
-    explosion: smooth(progress, 1.034, 1.115),
+    explosion: smooth(progress, .923, .978) * (1 - smooth(progress, 1.004, 1.057)),
+    context: 1 - smooth(progress, .995, 1.037),
+    study: smooth(progress, 1.000, 1.040),
+    split: smooth(progress, 1.004, 1.061),
+    overhead: smooth(progress, 1.082, 1.150),
   };
 }
 

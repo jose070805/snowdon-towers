@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import './annotations.css';
 
 // Anchors use the model's feet and ride their original explosion groups.
-const layers = [1.096, 1.15];
+const layers = [.956, 1.008];
 const notes = [
   { text: 'retained frontage', at: [53.94, 34.93, 36.17], group: 'heritage-2', mobile: true },
   { text: 'floor plates', at: [-80, 38.16, -2.3], group: 'slab-3', mobile: true, below: true },

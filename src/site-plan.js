@@ -63,9 +63,9 @@ export async function makeSitePlan(scene, footprints) {
 
   return {
     focus: site.camera,
-    apply(progress) {
+    apply(progress, context) {
       const fade = 1 - smooth(progress, .135, .273);
-      trace.style.opacity = (.10 + .12 * smooth(progress, .13, .32)).toFixed(3);
+      trace.style.opacity = ((.10 + .12 * smooth(progress, .13, .32)) * context).toFixed(3);
       officePlate.style.setProperty('--sheet-opacity', fade);
       let tip = null;
       for (const { key, from, to, ink, pencil } of byPhase) {
