@@ -133,10 +133,12 @@ button { font: inherit; }
   content: "";
   width: 13px;
   height: 1px;
-  background: color-mix(in srgb, #a8afbb60, #e9deca calc(var(--tick-proximity, 0) * 100%));
-  transition: background-color 100ms ease-out;
+  background: color-mix(in srgb, #a8afbb60, #fff0cc calc(var(--tick-proximity, 0) * 100%));
+  transform: scaleX(calc(1 + .8 * var(--tick-proximity, 0)));
+  transform-origin: left;
+  transition: background-color 100ms ease-out, transform 100ms ease-out;
 }
-.scale i.current::before { width: 28px; background: var(--gold); }
+.scale i.current::before { width: 28px; background: var(--gold); transform: none; }
 .scale button:focus-visible { background: #d9a34c0c; }
 .scale button:focus-visible { outline: 1px solid var(--gold); outline-offset: -2px; }
 .transport {

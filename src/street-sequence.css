@@ -33,9 +33,13 @@
   font: 12px/1 var(--mono); cursor: pointer;
 }
 .floor-nav button::after { content: ""; display: inline-block; vertical-align: middle; width: 8px;
-  height: 1px; margin-left: 8px; background: currentColor; opacity: calc(.4 + .6 * var(--tick-proximity, 0)); }
+  height: 1px; margin-left: 8px; background: currentColor;
+  opacity: calc(.32 + .68 * var(--tick-proximity, 0));
+  transform: scaleX(calc(1 + .95 * var(--tick-proximity, 0)));
+  transform-origin: right;
+}
 .floor-nav button[aria-current="step"] { color: var(--gold); }
-.floor-nav button[aria-current="step"]::after { width: 17px; opacity: 1; }
+.floor-nav button[aria-current="step"]::after { width: 17px; opacity: 1; transform: none; }
 .floor-nav button:focus-visible { outline: 1px solid var(--gold); }
 @media (max-width: 730px), (max-height: 490px) {
   .floor-nav { left: var(--edge); right: var(--edge); top: auto; bottom: 77px;
