@@ -2,6 +2,9 @@
   .scroll-space { height: clamp(10038.049px, 1518.743vh, 16648.234px); }
 }
 
+.atmosphere { opacity: var(--site-context, 1); }
+.stage-grain { opacity: calc(.25 * var(--site-context, 1)); }
+
 .section-datum {
   position: absolute;
   z-index: 2;

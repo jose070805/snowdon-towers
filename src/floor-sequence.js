@@ -1,6 +1,6 @@
 import { MathUtils } from 'three';
 
-const firstPlan = 1.16;
+export const firstPlan = 1.16;
 const interval = .068;
 export const floors = [
   ['ROOF', 613075, 'A106 / ROOF OVERVIEW', '屋顶总览'],

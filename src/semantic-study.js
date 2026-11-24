@@ -45,7 +45,9 @@ export async function makeSemanticStudy(scene, model, landscape, jump) {
 
   const plates = new THREE.Group();
   root.add(plates);
+  const roofLevels = new Set([964417, 613075, 1925045, 696520]);
   const gold = new THREE.LineBasicMaterial({color: '#dfaf64', transparent: true, depthWrite: false});
+  const roofGold = gold.clone();
   const layers = floors.map(floor => {
     const plan = new THREE.Group();
     root.add(plan);
@@ -80,7 +82,7 @@ export async function makeSemanticStudy(scene, model, landscape, jump) {
   const batches = meta.batches.map(({level, kind, floor, edgeRange: [offset, length]}) => {
     const strokes = Float32Array.from({length}, (_, i) =>
       payload.getInt16((offset + i) * 2, true) / model.meta.quantization);
-    const line = new THREE.LineSegments(meshGeometry(strokes), gold);
+    const line = new THREE.LineSegments(meshGeometry(strokes), roofLevels.has(level) ? roofGold : gold);
     plates.add(line);
     if (level === mezzanineId) {
       for (let i = 0; i < strokes.length; i += 3) {
@@ -91,7 +93,7 @@ export async function makeSemanticStudy(scene, model, landscape, jump) {
     return {line, kind, floor, lift: meta.datums[level].liftFt};
   });
   for (const {geometry, band, lift} of landscape.supportedEdges(meta.roofSupports)) {
-    const line = new THREE.LineSegments(geometry, gold);
+    const line = new THREE.LineSegments(geometry, roofGold);
     plates.add(line);
     batches.push({line, kind: 'roof', floor: band, lift});
   }
@@ -107,15 +109,20 @@ export async function makeSemanticStudy(scene, model, landscape, jump) {
       return Object.fromEntries(Object.keys(a).map(k => [k, THREE.MathUtils.lerp(a[k], b[k], blend)]));
     },
     apply(street, page, camera, width, height, offset) {
-      const {study, split, explosion, overhead} = street;
+      const {study, split, explosion, overhead, planReveal} = street;
       root.visible = study > .001;
       navigation(study >= .96, overhead >= .99 ? page.active : null);
       const plateVisibility = study * (1 - overhead);
       mezzanine.hidden = plateVisibility < .24 || !mezzanineLine;
       if (!root.visible) return;
       gold.opacity = .94 * plateVisibility;
-      plates.visible = gold.opacity > .001;
+      // The roof lines and A106 share project X/Z. At the orthographic pole
+      // their different heights are immaterial, so the contour needs no offset.
+      roofGold.opacity = .94 * study * (1 - planReveal);
+      plates.visible = roofGold.opacity > .001;
       for (const {line, kind, floor, lift} of batches) {
+        line.visible = line.material.opacity > .001;
+        if (!line.visible) continue;
         const p = offset(kind, floor, explosion);
         line.position.set(p.x, p.y + lift * split, p.z);
       }
@@ -130,7 +137,7 @@ export async function makeSemanticStudy(scene, model, landscape, jump) {
       }
       layers.forEach((layer, i) => {
         const weight = Number(i === page.from) * (1 - page.blend) + Number(i === page.to) * page.blend;
-        const isolated = weight * overhead;
+        const isolated = weight * planReveal;
         layer.plan.visible = isolated > .001;
         layer.detail.opacity = .38 * isolated;
         layer.fine.opacity = .65 * isolated;

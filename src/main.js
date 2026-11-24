@@ -270,7 +270,7 @@ function updateEditorial(progress, street, scroll, page) {
   const title = motionPreference.matches ? Number(era === 0) : 1 - smooth(progress, .064, chapters[1].start);
   masthead.style.opacity = title;
   masthead.style.visibility = title === 0 ? 'hidden' : 'visible';
-  if (era === 7 && street.overhead > .5) queries['view-type'].textContent = page.active.heading;
+  if (era === 7 && street.planReveal > .5) queries['view-type'].textContent = page.active.heading;
   else if (era === 7 && street.explosion >= .55) queries['view-type'].textContent = 'EXPLODED / DISPLAY GROUPS';
   else if (era === 7 && street.study > .5) queries['view-type'].textContent = 'A301 / LEVEL ASSEMBLIES';
   else if (era === 7) queries['view-type'].textContent = chapters[era].view;
@@ -367,6 +367,7 @@ async function initialize() {
     const page = floorFrame(storyPosition);
     const plan = applyStudy?.frame(page);
     const context = street.context;
+    stageElement.style.setProperty('--site-context', context);
     studyMask.value = street.study;
     const { explosion } = street;
     const { tilt, spanWidth, push } = pose(camera, p, width, height, site.focus, street, dragOrbit(storyPosition, motionPreference.matches), plan);

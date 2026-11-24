@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import elevationUrl from '../assets/south-elevations.json?url';
 import { meshGeometry, segmentsFrom } from './geometry.js';
+import { firstPlan } from './floor-sequence.js';
 
 const smooth = THREE.MathUtils.smoothstep;
 
@@ -8,6 +9,7 @@ export const earlySequenceScale = .8;
 
 export function streetSequence(progress) {
   const returnToAxon = smooth(progress, .839, .914);
+  const topAligned = 1.143;
   return {
     approach: smooth(progress, .698, .769) * (1 - returnToAxon),
     headOn: smooth(progress, .769, .789),
@@ -20,7 +22,8 @@ export function streetSequence(progress) {
     context: 1 - smooth(progress, .995, 1.037),
     study: smooth(progress, 1.000, 1.040),
     split: smooth(progress, 1.004, 1.061),
-    overhead: smooth(progress, 1.082, 1.150),
+    overhead: smooth(progress, 1.082, topAligned),
+    planReveal: smooth(progress, topAligned + .005, firstPlan),
   };
 }
 
