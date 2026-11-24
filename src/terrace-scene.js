@@ -287,7 +287,13 @@ export function makeTerrace(scene, site, shell) {
     }
     return body;
   }
-  const hero = table(...frontTable, tableRadius, true, [1.08, 2.69]);
+  const hero = table(...frontTable, tableRadius, true, [2.69]);
+  // This chair faces out toward the lane. Its top rail overlaps the rim in
+  // the overhead view while the uprights clear the edge of the tabletop.
+  const frontChairAngle = .75;
+  const frontChairDistance = .632;
+  chair(frontTable[0] + Math.sin(frontChairAngle) * frontChairDistance,
+    frontTable[1] + Math.cos(frontChairAngle) * frontChairDistance, frontChairAngle);
   table(-1.73, .61, .303, false, [3.55, 5.6]);
   table(-1.61, -1.15, .329, false, [.33, 1.94]);
   table(-.66, -2.29, .351, false, [1.71, 3.16]);
