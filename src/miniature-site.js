@@ -1,72 +1,131 @@
 import * as THREE from 'three';
 import { segmentsFrom } from './geometry.js';
 import treeLocations from '../assets/site-planting.json';
+import siteSurfaces from '../assets/site-surfaces.json';
 
 const { smoothstep: smooth } = THREE.MathUtils;
+const top = -2.18;
+const swatches = {
+  asphalt: '#42474a',
+  parking: '#393d41',
+  walk: '#b8b9b0',
+  ramp: '#90978f',
+  green: '#6b8849',
+  rear: '#7c934f',
+};
 
-export function makeMiniatureSite(scene, site) {
+function shapeFor(outline) {
+  return new THREE.Shape(outline.map(([x, z]) => new THREE.Vector2(x, -z)));
+}
+
+export function makeMiniatureSite(scene) {
   const root = new THREE.Group();
   root.name = 'miniature-site';
   scene.add(root);
 
-  // C101 is a flattened DXF. The plinth and tree silhouettes are a diagrammatic
-  // model of that survey, with source locations rather than assumed building heights.
   const study = new THREE.Group();
-  const plaster = new THREE.MeshBasicMaterial({color: '#bfc5be', transparent: true, depthWrite: false});
-  const edge = new THREE.MeshBasicMaterial({color: '#797f7d', transparent: true, depthWrite: false});
-  const stand = new THREE.Mesh(new THREE.BoxGeometry(488, 6, 462),
-    [edge, edge, plaster, edge, edge, edge]);
-  stand.position.set(13, -5.2, 35);
-  stand.renderOrder = -2;
+  root.add(study);
+  const materials = new Map();
+  function finish(color, opacity = 1) {
+    const material = new THREE.MeshLambertMaterial({color, transparent: true, depthWrite: false});
+    materials.set(material, opacity);
+    return material;
+  }
+  const plaster = finish('#e5e4dc');
+  const wall = finish('#d5d8d3');
+  const ground = finish('#728248');
+  const soil = finish('#4c3727');
+  const surfaceFinishes = Object.fromEntries(Object.entries(swatches).map(([kind, color]) => [kind, finish(color)]));
+  const [xmin, zmin, xmax, zmax] = siteSurfaces.plate;
+  const thickness = 35;
+  const stand = new THREE.Mesh(new THREE.BoxGeometry(xmax - xmin, thickness, zmax - zmin),
+    [soil, soil, ground, soil, soil, soil]);
+  stand.name = 'Site section base';
+  stand.position.set((xmin + xmax) / 2, top - thickness / 2, (zmin + zmax) / 2);
   study.add(stand);
-  // Closed context outlines from the linked C101 drawing. Their coordinates
-  // stay in project feet; the uniform heights are study-model extrusions.
-  const west = [[-209.62,-186.62], [-182.62,-156.62], [-152.62,-126.62]];
-  const footprints = [
-    ...west.map(([left,right]) => [[left,-37.83], [right,-37.83], [right,33.17], [left,33.17]]),
-    [[124.5,157], [131.4,130.4], [115.4,126.2], [121.9,87.6], [197.4,107.3], [184.3,144.2], [166.3,139.5], [158.7,168.9]],
-  ];
+
+  const surfaces = new THREE.Group();
+  surfaces.name = 'C101 street and landscape surfaces';
+  for (const [index, {points, kind, name}] of siteSurfaces.surfaces.entries()) {
+    const geometry = new THREE.ShapeGeometry(shapeFor(points));
+    geometry.rotateX(-Math.PI / 2);
+    const patch = new THREE.Mesh(geometry, surfaceFinishes[kind]);
+    patch.name = kind;
+    patch.userData.siteSurface = name;
+    patch.position.y = top + .05 + .012 * index;
+    surfaces.add(patch);
+  }
+  study.add(surfaces);
+  const parkingInk = segmentsFrom(siteSurfaces.markings.flatMap(([x, z, endX, endZ]) =>
+    [x, top + .48, z, endX, top + .48, endZ]));
+  parkingInk.name = 'Original linked parking stripes';
+  parkingInk.material.color.set('#e0dfc9');
+  materials.set(parkingInk.material, .9);
+  study.add(parkingInk);
+
+  const edgeInk = new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, depthWrite: false });
+  materials.set(edgeInk, .53);
   const massing = new THREE.Group();
   massing.name = 'C101 context massing';
-  for (const footprint of footprints) {
-    const shape = new THREE.Shape(footprint.map(([x,z]) => new THREE.Vector2(x, -z)));
-    const geometry = new THREE.ExtrudeGeometry(shape, {depth: 13, bevelEnabled: false});
+  for (const {points, height, name} of siteSurfaces.footprints) {
+    const geometry = new THREE.ExtrudeGeometry(shapeFor(points), {depth: height, bevelEnabled: false});
     geometry.rotateX(-Math.PI / 2);
-    const block = new THREE.Mesh(geometry, [plaster, edge]);
-    block.position.y = -2.14;
+    geometry.computeVertexNormals();
+    const block = new THREE.Mesh(geometry, [plaster, wall]);
+    block.name = name;
+    block.position.y = top + .52;
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 30), edgeInk);
+    edges.renderOrder = 1;
+    block.add(edges);
     massing.add(block);
   }
   study.add(massing);
-  const stripes = [['roads', 0x55616a, .68], ['context', 0x69777a, .44], ['contours', 0x8d9893, .33]].map(
-    ([layer, color, ink]) => {
-      const values = site.layers[layer].flatMap(([x, z, endX, endZ]) => [x, -2.12, z, endX, -2.12, endZ]);
-      const lines = segmentsFrom(values);
-      lines.material.color.setHex(color);
-      lines.renderOrder = -1;
-      study.add(lines);
-      return {lines, ink};
-    },
-  );
-  const canopyGeometry = new THREE.IcosahedronGeometry(4.6, 1);
-  for (const [x, z] of treeLocations) {
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.38, .52, 5.4, 6), edge);
-    trunk.position.set(x, .6, z);
-    const canopy = new THREE.Mesh(canopyGeometry, plaster);
-    canopy.scale.y = 1.28;
-    canopy.position.set(x, 5.2, z);
-    study.add(trunk, canopy);
+  const bark = finish('#948d68');
+  const foliage = finish('#90a667');
+  const trunkGeometry = new THREE.CylinderGeometry(.4, .65, 8.6, 6);
+  const crownGeometry = new THREE.IcosahedronGeometry(1, 1);
+  const crownOutline = new THREE.EdgesGeometry(crownGeometry, 39);
+  for (const [index, [x, z]] of treeLocations.entries()) {
+    const trunk = new THREE.Mesh(trunkGeometry, bark);
+    trunk.position.set(x, top + 4.3, z);
+    study.add(trunk);
+    for (let branch = 0; branch < 3; branch++) {
+      const angle = 2.094 * branch + index * .41;
+      const radius = 3.55 + ((index * 3 + branch) % 4) * .36;
+      const canopy = new THREE.Mesh(crownGeometry, foliage);
+      canopy.scale.set(radius, radius * 1.24, radius * .95);
+      canopy.position.set(x + Math.cos(angle) * 2.35, top + 7.3 + branch * 1.28, z + Math.sin(angle) * 2.35);
+      canopy.add(new THREE.LineSegments(crownOutline, edgeInk));
+      study.add(canopy);
+    }
   }
-  root.add(study);
+
+  const fill = new THREE.HemisphereLight('#e4edff', '#8b7b5c', 1.55);
+  const sun = new THREE.DirectionalLight('#fff2d0', 1.9);
+  sun.position.set(-242, 380, 145);
+  study.add(fill, sun, sun.target);
+
   return (story, context) => {
     root.visible = story > -.041 && context > .001;
     if (!root.visible) return;
     const lift = smooth(story, -.041, .082);
-    const retreat = 1 - smooth(story, .22, .67) * .55;
-    const strength = smooth(story, -.041, .031) * retreat * context;
+    const intro = smooth(story, -.041, .034);
+    const fade = 1 - .36 * smooth(story, .212, .555);
+    const strength = intro * fade * context;
     study.visible = strength > .001;
     study.position.y = -8 * (1 - lift);
-    plaster.opacity = strength * .84;
-    edge.opacity = strength * .79;
-    for (const {lines, ink} of stripes) lines.material.opacity = strength * ink;
+    // Keep the architectural ground glow but tone down the site beneath the
+    // later exploded view so the amber structural edges still lead.
+    for (const [material, opacity] of materials) {
+      material.opacity = strength * opacity;
+      if (!material.isLineBasicMaterial) {
+        const opaque = material.opacity >= .995;
+        if (material.transparent === opaque) {
+          material.transparent = !opaque;
+          material.depthWrite = opaque;
+          material.needsUpdate = true;
+        }
+      }
+    }
   };
 }

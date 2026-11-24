@@ -205,17 +205,19 @@ function pose(camera, progress, width, height, site, street, offset, plan) {
   const turn = smooth(progress, .816, .913);
   const { approach, headOn, explosion, split } = street;
   const datumMargin = mobile ? street.datum : 0;
-  const siteTilt = .45 * smooth(progress, .018, .134) * (1 - smooth(progress, .208, .409));
+  const siteOverview = smooth(progress, .018, .111) * (1 - smooth(progress, .186, .341));
+  const siteTilt = .99 * siteOverview;
   const axonPhi = mix(.018, 1.065, tilt) + siteTilt - garden * .247 + explosion * .065 + split * .22;
   const axonBearing = mix(site.bearing, mix(-.045, -.66, tilt), push) + orbit * .94
     - garden * .51 + turn * .285 - explosion * .31;
   let phi = mix(axonPhi, mix(1.74, Math.PI / 2, headOn), approach) + offset.tilt;
-  let bearing = mix(axonBearing, mix(.26, 0, headOn), approach) + offset.bearing;
+  let bearing = mix(mix(axonBearing, .785, siteOverview), mix(.26, 0, headOn), approach) + offset.bearing;
   const focus = new THREE.Vector3(
     mix(site.x, mix(1, -1, tilt), push) + 9 * explosion,
     (33.5 + 8 * garden) * tilt + 43 * explosion + 50 * split,
     mix(site.z, 1, push) - 4 * garden + 11 * explosion,
   );
+  focus.lerp(new THREE.Vector3(13, 0, 35), siteOverview);
   focus.lerp(new THREE.Vector3(1, 38, 15), approach);
   const top = plan ? street.overhead : 0;
   if (top) {
@@ -238,12 +240,13 @@ function pose(camera, progress, width, height, site, street, offset, plan) {
   const modelSpan = mix(mix(site.width * paperZoom * (mobile ? .84 : 1), mix(268, 256, tilt), push) + explosion * 17 + split * (mobile ? 25 : 22) + 36 * datumMargin, 246, approach);
   const heightSpan = mix(mix(site.height * paperZoom, mix(145, 171, tilt), push) + explosion * 63 + split * 88, mobile ? 105 : 139, approach);
   let spanWidth = Math.max(modelSpan * (mobile ? .98 : 1), heightSpan * ratio);
+  spanWidth = mix(spanWidth, Math.max(746, 461 * ratio), siteOverview);
   if (top) spanWidth = mix(spanWidth, Math.max(plan.width * (mobile ? 1.22 : 1.42),
     plan.depth * ratio * (mobile ? 1.70 : 1.38)), top);
   const spanHeight = spanWidth / ratio;
   const translateX = mobile ? mix(mix(.027, .045, push), .025, approach) : mix(.089, .073, push) - explosion * .012;
   const translateY = mix(mobile ? -.016 : mix(.025, -.065, push) + tilt * .076 + explosion * .005, mobile ? .06 : 0, top);
-  const centeredX = mix(translateX * paperZoom - split * (mobile ? .04 : .08) - .075 * datumMargin, mobile ? .015 : -.025, top);
+  const centeredX = mix(translateX * paperZoom * (1 - siteOverview * .86) - split * (mobile ? .04 : .08) - .075 * datumMargin, mobile ? .015 : -.025, top);
   camera.left = (-.5 - centeredX) * spanWidth;
   camera.right = (.5 - centeredX) * spanWidth;
   camera.top = (.5 - translateY) * spanHeight;
@@ -312,7 +315,7 @@ async function initialize() {
     makeSouthElevations(scene),
   ]);
   const cafe = makeCafeSequence(scene, site.data, footprints);
-  const miniature = makeMiniatureSite(scene, site.data);
+  const miniature = makeMiniatureSite(scene);
   const lamp = { value: 0 };
   const { groups, solid, lineMaterials, shellMaterials } = createGroups(model, scene, lamp, drawing, shell, wire, studyMask);
   const annotations = makeAnnotations(groups);
@@ -394,7 +397,7 @@ async function initialize() {
     const { tilt, spanWidth, push } = pose(camera, p, width, height, site.focus, street, dragOrbit(storyPosition, motionPreference.matches), plan);
     cafe.apply(intro, camera, width, height);
     miniature(storyPosition, context);
-    const entity = smooth(p, .482, .577);
+    const entity = Math.max(.74 * smooth(p, .015, .145), smooth(p, .482, .577));
     solid.value = entity;
     lamp.value = smooth(p, .776, .810);
     drawing.value = street.drawing;
@@ -426,7 +429,7 @@ async function initialize() {
     ghostAxes.material.opacity = context * mix(.23, .08, tilt) * push * (1 - drawing.value);
     axisTips.material.opacity = context * smooth(p, .185, .261) * .42 * (1 - tilt * .85);
     const pageInk = 1 - smooth(p, .3, .476) * .72;
-    const openingInk = smooth(intro, .90, 1) * (1 - smooth(storyPosition, .115, .255));
+    const openingInk = smooth(intro, .90, 1) * (1 - smooth(storyPosition, .106, .151));
     let current = site.apply(Math.max(p, .105), context * openingInk);
     for (const { pencil, start, end, ink } of plot) {
       const fraction = clamp((p - start) / (end - start), 0, 1);
