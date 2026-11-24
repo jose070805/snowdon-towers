@@ -1,3 +1,5 @@
+import { cafeDuration, makeCafeSequence } from './cafe-sequence.js';
+import { makeMiniatureSite } from './miniature-site.js';
 import { bindTickProximity } from './tick-proximity.js';
 import { floorFrame, storyEnd } from './floor-sequence.js';
 import { makeSemanticStudy } from './semantic-study.js';
@@ -36,19 +38,21 @@ for (const chapter of chapters.slice(0, 5)) {
   chapter.stop *= earlySequenceScale;
 }
 
+chapters[0].start = -cafeDuration;
+
 // Holds are measured in scroll distance on the original, one-unit shot sequence.
 const holds = [
   { at: .0832, length: .028 }, { at: .648, length: .038 },
   { at: .818, length: .029 }, { at: .916, length: .029 },
 ];
-const scrollLength = storyEnd + holds.reduce((total, hold) => total + hold.length, 0);
+const scrollLength = storyEnd + cafeDuration + holds.reduce((total, hold) => total + hold.length, 0);
 function storyAt(scroll) {
-  let time = scroll * scrollLength;
+  let time = scroll * scrollLength - cafeDuration;
   for (const { at, length } of holds) time -= clamp(time - at, 0, length);
-  return clamp(time, 0, storyEnd);
+  return clamp(time, -cafeDuration, storyEnd);
 }
 function scrollAt(time) {
-  return (time + holds.reduce((sum, hold) => sum + (time > hold.at ? hold.length : 0), 0)) / scrollLength;
+  return (time + cafeDuration + holds.reduce((sum, hold) => sum + (time > hold.at ? hold.length : 0), 0)) / scrollLength;
 }
 const controls = [...document.querySelectorAll('[data-stage]')];
 const tickCount = 32;
@@ -201,7 +205,8 @@ function pose(camera, progress, width, height, site, street, offset, plan) {
   const turn = smooth(progress, .816, .913);
   const { approach, headOn, explosion, split } = street;
   const datumMargin = mobile ? street.datum : 0;
-  const axonPhi = mix(.018, 1.065, tilt) - garden * .247 + explosion * .065 + split * .22;
+  const siteTilt = .45 * smooth(progress, .018, .134) * (1 - smooth(progress, .208, .409));
+  const axonPhi = mix(.018, 1.065, tilt) + siteTilt - garden * .247 + explosion * .065 + split * .22;
   const axonBearing = mix(site.bearing, mix(-.045, -.66, tilt), push) + orbit * .94
     - garden * .51 + turn * .285 - explosion * .31;
   let phi = mix(axonPhi, mix(1.74, Math.PI / 2, headOn), approach) + offset.tilt;
@@ -269,7 +274,12 @@ function updateEditorial(progress, street, scroll, page) {
     queries['view-type'].textContent = chapter.view;
     controls.forEach((control, index) => control.setAttribute('aria-current', index === era ? 'step' : 'false'));
   }
-  const title = motionPreference.matches ? Number(era === 0) : 1 - smooth(progress, .064, chapters[1].start);
+  const title = 1 - smooth(progress, -cafeDuration * .79, -cafeDuration * .42);
+  if (era === 0) {
+    const view = progress < -cafeDuration * .62 ? 'NIGHT STREET'
+      : progress < -cafeDuration * .17 ? 'CAFÉ' : chapters[era].view;
+    if (queries['view-type'].textContent !== view) queries['view-type'].textContent = view;
+  }
   masthead.style.opacity = title;
   masthead.style.visibility = title === 0 ? 'hidden' : 'visible';
   if (era === 7 && street.planReveal > .5) queries['view-type'].textContent = page.active.heading;
@@ -299,6 +309,8 @@ async function initialize() {
     makeLandscape(gardens, drawing, wire, studyMask),
     makeSouthElevations(scene),
   ]);
+  const cafe = makeCafeSequence(scene, site.focus);
+  const miniature = makeMiniatureSite(scene, site.data);
   const lamp = { value: 0 };
   const { groups, solid, lineMaterials, shellMaterials } = createGroups(model, scene, lamp, drawing, shell, wire, studyMask);
   const annotations = makeAnnotations(groups);
@@ -356,14 +368,19 @@ async function initialize() {
     let storyPosition = story;
     if (motionPreference.matches) {
       storyPosition = chapters[chapters.findLastIndex(chapter => story >= chapter.start)].stop;
-      if (story >= .875) {
+      if (story < 0) {
+        const introStep = story < -.18 ? .07 : story < -.07 ? .60 : .92;
+        storyPosition = (introStep - 1) * cafeDuration;
+      } else if (story >= .875) {
         if (story < .923) storyPosition = .916;
         else if (story < 1.012) storyPosition = .981;
         else if (story < 1.115) storyPosition = 1.072;
         else storyPosition = floorFrame(story).active.stop;
       }
     }
-    const p = Math.min(storyPosition / earlySequenceScale, .913);
+    const intro = clamp((storyPosition + cafeDuration) / cafeDuration, 0, 1);
+    const p = clamp(storyPosition / earlySequenceScale, 0, .913);
+    const growth = Math.max(p, .285 + .197 * smooth(storyPosition, -.038, .058));
     const street = streetSequence(storyPosition);
     if (storyPosition >= .74 && !studyRequested) requestStudy();
     const page = floorFrame(storyPosition);
@@ -373,6 +390,8 @@ async function initialize() {
     studyMask.value = street.study;
     const { explosion } = street;
     const { tilt, spanWidth, push } = pose(camera, p, width, height, site.focus, street, dragOrbit(storyPosition, motionPreference.matches), plan);
+    cafe.apply(intro, camera, width, height);
+    miniature(storyPosition, context);
     const entity = smooth(p, .482, .577);
     solid.value = entity;
     lamp.value = smooth(p, .776, .810);
@@ -395,7 +414,7 @@ async function initialize() {
       material.opacity = mix(oldInk, wireInk * (1 - .85 * drawing.value) * (i >= 2 ? 1 - .35 * shell.value : 1), wire.value) * (1 - street.study);
     });
     for (const group of groups) {
-      const change = motionFor(group, p, explosion);
+      const change = motionFor(group, growth, explosion);
       group.node.visible = change.rise > .008 && street.study < .9999;
       group.node.position.set(change.x, change.y, change.z);
       group.node.scale.y = Math.max(.003, change.rise);
@@ -405,12 +424,12 @@ async function initialize() {
     ghostAxes.material.opacity = context * mix(.23, .08, tilt) * push * (1 - drawing.value);
     axisTips.material.opacity = context * smooth(p, .185, .261) * .42 * (1 - tilt * .85);
     const pageInk = 1 - smooth(p, .3, .476) * .72;
-    let current = site.apply(p, context);
+    let current = site.apply(Math.max(p, .105 * smooth(intro, .52, .91)), context, intro);
     for (const { pencil, start, end, ink } of plot) {
       const fraction = clamp((p - start) / (end - start), 0, 1);
       if (pencil.apply(fraction, ink * pageInk * context * (1 - drawing.value))) current = pencil.tip;
     }
-    cursor.visible = Boolean(current) && p < .290;
+    cursor.visible = Boolean(current) && p < .290 && intro > .76;
     if (cursor.visible) {
       cursor.position.copy(current);
       cursor.position.y += .15;
@@ -435,7 +454,7 @@ async function initialize() {
       queries['view-type'].textContent = 'A301 / PLATE DATA UNAVAILABLE';
     }
     annotations(camera, width, height, storyPosition, motionPreference.matches);
-    renderer.render(scene, camera);
+    renderer.render(scene, intro < 1 ? cafe.camera : camera);
   }
   function queueRender(force = false) {
     if (!pendingFrame && (force || Math.abs(previousPosition - position) > .000001)) {
