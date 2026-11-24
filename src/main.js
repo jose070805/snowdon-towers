@@ -506,7 +506,11 @@ async function initialize() {
   });
 }
 
-initialize().catch((error) => {
+const terraceView = new URLSearchParams(location.search).get('terrace');
+const startup = terraceView === 'street' || terraceView === 'table'
+  ? import('./terrace-review.js').then(({ renderTerraceFrame }) => renderTerraceFrame(terraceView))
+  : initialize();
+startup.catch((error) => {
   console.error(error);
   queries.loading.textContent = '三维场景加载失败。请通过本地预览地址打开，并检查浏览器 WebGL 支持。';
   stageElement.dataset.ready = 'error';
