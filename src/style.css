@@ -133,10 +133,11 @@ button { font: inherit; }
   content: "";
   width: 13px;
   height: 1px;
-  background: #a8afbb60;
+  background: color-mix(in srgb, #a8afbb60, #e9deca calc(var(--tick-proximity, 0) * 100%));
+  transition: background-color 100ms ease-out;
 }
 .scale i.current::before { width: 28px; background: var(--gold); }
-.scale button:hover, .scale button:focus-visible { background: #d9a34c0c; }
+.scale button:focus-visible { background: #d9a34c0c; }
 .scale button:focus-visible { outline: 1px solid var(--gold); outline-offset: -2px; }
 .transport {
   position: absolute;
@@ -189,6 +190,6 @@ button { font: inherit; }
   .transport { bottom: 31px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .scale i { transition: none; }
+  .scale i::before { transition: none; }
   .scroll-space { height: 370vh; }
 }

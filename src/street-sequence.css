@@ -33,15 +33,15 @@
   font: 12px/1 var(--mono); cursor: pointer;
 }
 .floor-nav button::after { content: ""; display: inline-block; vertical-align: middle; width: 8px;
-  height: 1px; margin-left: 8px; background: currentColor; opacity: .4; }
-.floor-nav button[aria-current="step"], .floor-nav button:hover { color: var(--gold); }
+  height: 1px; margin-left: 8px; background: currentColor; opacity: calc(.4 + .6 * var(--tick-proximity, 0)); }
+.floor-nav button[aria-current="step"] { color: var(--gold); }
 .floor-nav button[aria-current="step"]::after { width: 17px; opacity: 1; }
 .floor-nav button:focus-visible { outline: 1px solid var(--gold); }
 @media (max-width: 730px), (max-height: 490px) {
   .floor-nav { left: var(--edge); right: var(--edge); top: auto; bottom: 77px;
     transform: none; grid-auto-flow: column; grid-auto-columns: 1fr; }
   .floor-nav button { white-space: nowrap; min-width: 0; min-height: 38px; padding: 2px; font-size: 11px; text-align: center; }
-  .floor-nav button::after { display: block; margin: 5px auto 0; }
+  .floor-nav button::after { display: block; margin: 5px auto 0; --tick-proximity: 0; }
   .section-datum { font-size: 9px; }
 }
 

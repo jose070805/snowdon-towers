@@ -3,6 +3,7 @@ import studyUrl from '../assets/semantic-plates.sdt?url';
 import plansUrl from '../assets/floor-plans.sdp?url';
 import { meshGeometry } from './geometry.js';
 import { floors } from './floor-sequence.js';
+import { bindTickProximity } from './tick-proximity.js';
 
 async function unpack(url) {
   const response = await fetch(url);
@@ -24,6 +25,7 @@ function levelNavigation(jump) {
     nav.append(button);
     return button;
   });
+  bindTickProximity(nav, buttons);
   document.querySelector('.stage').append(nav);
   return (visible, active) => {
     nav.hidden = !visible;

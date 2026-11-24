@@ -1,3 +1,4 @@
+import { bindTickProximity } from './tick-proximity.js';
 import { floorFrame, storyEnd } from './floor-sequence.js';
 import { makeSemanticStudy } from './semantic-study.js';
 import { makeDragOrbit } from './drag-orbit.js';
@@ -58,6 +59,7 @@ const ticks = Array.from({ length: tickCount }, (_, i) => {
   controls[chapter].append(tick);
   return tick;
 });
+bindTickProximity(document.querySelector('.scale'), ticks);
 let currentTick = -1;
 const queries = Object.fromEntries(
   ['view-type', 'percent', 'progress', 'scene', 'loading']
