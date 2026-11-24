@@ -234,15 +234,16 @@ function pose(camera, progress, width, height, site, street, offset, plan) {
   );
   camera.lookAt(focus);
   const ratio = width / height;
-  const modelSpan = mix(mix(site.width * (mobile ? .84 : 1), mix(268, 256, tilt), push) + explosion * 17 + split * (mobile ? 25 : 22) + 36 * datumMargin, 246, approach);
-  const heightSpan = mix(mix(site.height, mix(145, 171, tilt), push) + explosion * 63 + split * 88, mobile ? 105 : 139, approach);
+  const paperZoom = mix(.72, 1, smooth(progress, .09, .22));
+  const modelSpan = mix(mix(site.width * paperZoom * (mobile ? .84 : 1), mix(268, 256, tilt), push) + explosion * 17 + split * (mobile ? 25 : 22) + 36 * datumMargin, 246, approach);
+  const heightSpan = mix(mix(site.height * paperZoom, mix(145, 171, tilt), push) + explosion * 63 + split * 88, mobile ? 105 : 139, approach);
   let spanWidth = Math.max(modelSpan * (mobile ? .98 : 1), heightSpan * ratio);
   if (top) spanWidth = mix(spanWidth, Math.max(plan.width * (mobile ? 1.22 : 1.42),
     plan.depth * ratio * (mobile ? 1.70 : 1.38)), top);
   const spanHeight = spanWidth / ratio;
   const translateX = mobile ? mix(mix(.027, .045, push), .025, approach) : mix(.089, .073, push) - explosion * .012;
   const translateY = mix(mobile ? -.016 : mix(.025, -.065, push) + tilt * .076 + explosion * .005, mobile ? .06 : 0, top);
-  const centeredX = mix(translateX - split * (mobile ? .04 : .08) - .075 * datumMargin, mobile ? .015 : -.025, top);
+  const centeredX = mix(translateX * paperZoom - split * (mobile ? .04 : .08) - .075 * datumMargin, mobile ? .015 : -.025, top);
   camera.left = (-.5 - centeredX) * spanWidth;
   camera.right = (.5 - centeredX) * spanWidth;
   camera.top = (.5 - translateY) * spanHeight;
@@ -277,7 +278,7 @@ function updateEditorial(progress, street, scroll, page) {
   const title = 1 - smooth(progress, -cafeDuration * .79, -cafeDuration * .42);
   if (era === 0) {
     const view = progress < -cafeDuration * .62 ? 'NIGHT STREET'
-      : progress < -cafeDuration * .17 ? 'CAFÉ' : chapters[era].view;
+      : progress < -cafeDuration * .40 ? 'CAFÉ TERRACE' : chapters[era].view;
     if (queries['view-type'].textContent !== view) queries['view-type'].textContent = view;
   }
   masthead.style.opacity = title;
@@ -304,12 +305,13 @@ async function initialize() {
   const gardens = new THREE.Group();
   gardens.name = 'landscape';
   scene.add(gardens);
+  const footprints = model.read(model.meta.plan.shell);
   const [site, landscape, elevations] = await Promise.all([
-    makeSitePlan(scene, model.read(model.meta.plan.shell)),
+    makeSitePlan(scene, footprints),
     makeLandscape(gardens, drawing, wire, studyMask),
     makeSouthElevations(scene),
   ]);
-  const cafe = makeCafeSequence(scene, site.focus);
+  const cafe = makeCafeSequence(scene, site.data, footprints);
   const miniature = makeMiniatureSite(scene, site.data);
   const lamp = { value: 0 };
   const { groups, solid, lineMaterials, shellMaterials } = createGroups(model, scene, lamp, drawing, shell, wire, studyMask);
@@ -369,7 +371,7 @@ async function initialize() {
     if (motionPreference.matches) {
       storyPosition = chapters[chapters.findLastIndex(chapter => story >= chapter.start)].stop;
       if (story < 0) {
-        const introStep = story < -.18 ? .07 : story < -.07 ? .60 : .92;
+        const introStep = story < -.18 ? 0 : story < -.035 ? .64 : .94;
         storyPosition = (introStep - 1) * cafeDuration;
       } else if (story >= .875) {
         if (story < .923) storyPosition = .916;
@@ -424,7 +426,8 @@ async function initialize() {
     ghostAxes.material.opacity = context * mix(.23, .08, tilt) * push * (1 - drawing.value);
     axisTips.material.opacity = context * smooth(p, .185, .261) * .42 * (1 - tilt * .85);
     const pageInk = 1 - smooth(p, .3, .476) * .72;
-    let current = site.apply(Math.max(p, .105 * smooth(intro, .52, .91)), context, intro);
+    const openingInk = smooth(intro, .90, 1) * (1 - smooth(storyPosition, .115, .255));
+    let current = site.apply(Math.max(p, .105), context * openingInk);
     for (const { pencil, start, end, ink } of plot) {
       const fraction = clamp((p - start) / (end - start), 0, 1);
       if (pencil.apply(fraction, ink * pageInk * context * (1 - drawing.value))) current = pencil.tip;

@@ -30,6 +30,13 @@ button { font: inherit; }
     radial-gradient(ellipse at 65% 50%, #2e466e 0, #1c2c4d 34%, transparent 67%),
     linear-gradient(150deg, #101a32 30%, #141f38 70%, #0b1328);
 }
+.atmosphere::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #102957;
+  opacity: var(--cafe-sky, 0);
+}
 #scene canvas { touch-action: pan-y pinch-zoom; display: block; width: 100%; height: 100%; }
 #scene canvas[data-orbit] { cursor: grab; }
 #scene canvas[data-dragging] { cursor: grabbing; }

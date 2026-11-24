@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import siteUrl from '../assets/site-plan.json?url';
 import { loadGeometry } from './geometry.js';
 import { makeTerrace } from './terrace-scene.js';
+import { setStreetView, setTableView } from './terrace-views.js';
 
 export async function renderTerraceFrame(view) {
   const [site, model] = await Promise.all([
@@ -25,17 +26,11 @@ export async function renderTerraceFrame(view) {
     const aspect = width / height;
     let camera;
     if (view === 'table') {
-      const vertical = Math.max(1.28, 1.05 / aspect);
-      camera = new THREE.OrthographicCamera(-vertical * aspect / 2, vertical * aspect / 2,
-        vertical / 2, -vertical / 2, .03, 40);
-      camera.position.set(table.position.x + .012, 2.22, table.position.z + .035);
-      camera.up.set(.16, 0, -.985);
-      camera.lookAt(table.position.x + .012, 0, table.position.z + .035);
+      camera = new THREE.OrthographicCamera();
+      setTableView(camera, table, aspect);
     } else {
-      const compact = aspect < .85;
-      camera = new THREE.PerspectiveCamera(compact ? 64 : 49, aspect, .045, 75);
-      camera.position.set(compact ? .61 : .55, 1.43, compact ? 3.82 : 3.65);
-      camera.lookAt(compact ? -.33 : -.12, 1.11, -6.5);
+      camera = new THREE.PerspectiveCamera();
+      setStreetView(camera, aspect);
     }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height, false);

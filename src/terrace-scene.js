@@ -323,15 +323,15 @@ export function makeTerrace(scene, site, shell) {
   const skyFill = new THREE.HemisphereLight('#afc3ed', '#56432f', 1.63);
   const moon = new THREE.DirectionalLight('#9bbafa', 1.10);
   moon.position.set(0.5, 6.0, 3.6);
-  scene.add(skyFill, moon);
+  root.add(skyFill, moon, moon.target);
   for (const z of [-.6, -4.2, -8.4]) {
     const warmLight = new THREE.PointLight('#ffba36', 13.3, 6.4, 2);
     warmLight.position.set(-1.32, 2.19, z);
-    scene.add(warmLight);
+    root.add(warmLight);
   }
   const shopLight = new THREE.PointLight('#f0a331', 10, 4.4, 2);
   shopLight.position.set(3.43, 1.43, -8.76);
-  scene.add(shopLight);
+  root.add(shopLight);
   scene.background = new THREE.Color('#102957');
   scene.fog = new THREE.Fog('#102957', 16, 43);
 
@@ -365,6 +365,9 @@ function addPaper(table, site, shell) {
   const center = bounds.getCenter(new THREE.Vector2());
   const span = bounds.getSize(new THREE.Vector2());
   const scale = Math.min(paperWidth * .84 / span.x, paperDepth * .82 / span.y);
+  // This is also the registration used by the scroll camera. Keeping it on
+  // the paper makes the site agree with the exact crop seen in both previews.
+  group.userData.print = {angle, center, scale};
   for (const [i, coords] of points.entries()) {
     const geometry = new THREE.BufferGeometry();
     const values = coords.flatMap(([x,z]) => [(x-center.x)*scale, .0006 + i*.00008, (z-center.y)*scale]);

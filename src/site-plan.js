@@ -64,15 +64,15 @@ export async function makeSitePlan(scene, footprints) {
   return {
     focus: site.camera,
     data: site,
-    apply(progress, context, intro = 1) {
+    apply(progress, context) {
       const fade = 1 - smooth(progress, .135, .273);
-      trace.style.opacity = ((.10 + .12 * smooth(progress, .13, .32)) * context * smooth(intro, .965, 1)).toFixed(3);
-      officePlate.style.setProperty('--sheet-opacity', fade * smooth(intro, .96, 1));
+      trace.style.opacity = ((.10 + .12 * smooth(progress, .13, .32)) * context).toFixed(3);
+      officePlate.style.setProperty('--sheet-opacity', fade * context);
       let tip = null;
       for (const { key, from, to, ink, pencil } of byPhase) {
         const fraction = scale(key === 'locator' ? .13 : .26, 1, smooth(progress, from, to));
         const opacity = key === 'locator' ? ink * (1 - smooth(progress, .193, .284)) : ink * fade;
-        if (pencil.apply(fraction, opacity * smooth(intro, .53, .78))) tip = pencil.tip;
+        if (pencil.apply(fraction, opacity * context)) tip = pencil.tip;
       }
       return tip;
     },
