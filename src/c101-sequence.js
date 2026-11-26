@@ -119,22 +119,25 @@ export function makeC101Overlay(stage, site, miniature, footprints, groups) {
       if (value.textContent !== words[index]) value.textContent = words[index];
     }
     const active = [];
-    function project(note, world, ink, side, vertical, subject = false) {
+    function project(note, world, ink, side, vertical, options = {}) {
       projected.copy(world).project(camera);
       const x = (.5 + .5 * projected.x) * width;
       const y = (.5 - .5 * projected.y) * height;
       if (x < 5 || x > width - 5 || y < 5 || y > height - 5) note.node.hidden = true;
-      else active.push({note, anchor: {x, y}, ink, side, vertical, subject});
+      else active.push({note, anchor: {x, y}, ink, side, vertical, ...options});
     }
     const finalAnchor = towerGroup.node.localToWorld(towerVertex.clone());
     const point = footprint.clone().lerp(finalAnchor, smooth(progress, .592, .70));
     const label = progress < .45 ? 'drop point' : progress < .58 ? 'building base' : 'main building';
     if (main.label.textContent !== label) main.label.textContent = label;
-    project(main, point, 1, 1, progress >= .58 ? -1 : 1, true);
+    project(main, point, 1, 1, progress >= .58 ? -1 : 1, {subject: true});
     for (const {note, key, from, to, side, vertical} of notes) {
       const ink = noteOpacity(progress, from, to, reduced);
       if (ink < .001) note.node.hidden = true;
-      else project(note, drawingAnchors[key] ?? miniature.anchor(key), ink, side, vertical);
+      else {
+        const separateFrom = key === 'parking' && width < 730 && label === 'main building' ? main : undefined;
+        project(note, drawingAnchors[key] ?? miniature.anchor(key), ink, side, vertical, {separateFrom});
+      }
     }
     const drawing = progress >= .65 ? corners.map(corner => {
       projected.copy(corner).project(camera);

@@ -106,7 +106,8 @@ export function placeFieldNotes(entries, width, height, protectedElements, proje
   const insideDrawing = point => outline.length && outline.every(([a, b]) => turn(a, b, point) > 0);
   const placed = [];
   for (const entry of entries) {
-    const {note, anchor, ink, side, vertical, subject} = entry;
+    const {note, anchor, ink, side, vertical, subject, separateFrom} = entry;
+    const separateRow = separateFrom && placed.find(other => other.note === separateFrom)?.bounds;
     note.node.hidden = false;
     const w = note.label.offsetWidth;
     const h = note.label.offsetHeight;
@@ -123,6 +124,7 @@ export function placeFieldNotes(entries, width, height, protectedElements, proje
     })));
     const avoidsDrawing = outline.length && !insideDrawing(anchor);
     let placement;
+    let sideBySide;
     let subjectFallback;
     for (const candidate of candidates.sort((a, b) => a.rank - b.rank)) {
       const left = clamp(candidate.left, margin, width - w - margin);
@@ -142,16 +144,20 @@ export function placeFieldNotes(entries, width, height, protectedElements, proje
         (avoidsDrawing && outline.some(([c, d]) => crosses(a, b, c, d))) ||
         placed.some(other => hitsRect(a, b, other.bounds) ||
           other.segments.some(([c, d]) => crosses(a, b, c, d))))) continue;
-      const match = {box, bounds, ...leader};
+      const match = {note, box, bounds, ...leader};
       // When the subject is close to the viewport edge, keep its label near its own outline.
       if (overDrawing) {
         subjectFallback ??= match;
         continue;
       }
+      if (separateRow && bounds.top < separateRow.bottom && bounds.bottom > separateRow.top) {
+        sideBySide ??= match;
+        continue;
+      }
       placement = match;
       break;
     }
-    placement ??= subjectFallback;
+    placement ??= sideBySide ?? subjectFallback;
     if (!placement) {
       note.node.hidden = true;
       continue;
