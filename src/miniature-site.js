@@ -59,6 +59,12 @@ export function makeMiniatureSite(scene) {
     patch.name = kind;
     patch.userData.siteSurface = name;
     patch.position.y = top + .05 + .012 * index;
+    if (name === 'West surface parking and drive' || name === 'Inner ramp terrace') {
+      // Use the street-facing edge of each registered surface.
+      const key = kind === 'parking' ? 'parking' : 'landscape';
+      const point = points[kind === 'parking' ? 4 : 1];
+      anchors[key] = new THREE.Vector3(point[0], patch.position.y, point[1]);
+    }
     surfaces.add(patch);
   }
   study.add(surfaces);
@@ -67,9 +73,6 @@ export function makeMiniatureSite(scene) {
   parkingInk.name = 'Original linked parking stripes';
   parkingInk.material.color.set('#e0dfc9');
   track(parkingInk.material, .9);
-  const stripe = siteSurfaces.markings.reduce((best, line) =>
-    Math.hypot(line[0] + 157, line[1] - 105) < Math.hypot(best[0] + 157, best[1] - 105) ? line : best);
-  anchors.parking = new THREE.Vector3((stripe[0] + stripe[2]) / 2, top + .48, (stripe[1] + stripe[3]) / 2);
   study.add(parkingInk);
 
   const edgeInk = new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, depthWrite: false });
@@ -83,7 +86,7 @@ export function makeMiniatureSite(scene) {
     const block = new THREE.Mesh(geometry, [plaster, wall]);
     block.name = name;
     block.position.y = top + .52;
-    if (name === 'West street block 3') {
+    if (name === 'West street block 4') {
       const [x, z] = points[2];
       anchors.massing = new THREE.Vector3(x, block.position.y + height, z);
     }
@@ -109,7 +112,6 @@ export function makeMiniatureSite(scene) {
       canopy.scale.set(radius, radius * 1.24, radius * .95);
       canopy.position.set(x + Math.cos(angle) * 2.35, top + 7.3 + branch * 1.28, z + Math.sin(angle) * 2.35);
       canopy.add(new THREE.LineSegments(crownOutline, edgeInk));
-      if (index === 6 && branch === 2) anchors.landscape = canopy.position.clone();
       study.add(canopy);
     }
   }
