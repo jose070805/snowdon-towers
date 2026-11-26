@@ -64,7 +64,22 @@ export async function makeSitePlan(scene, footprints) {
   return {
     focus: site.camera,
     data: site,
-    apply(progress, context) {
+    apply(progress, context, siteProgress) {
+      if (siteProgress !== null) {
+        const planInk = 1 - smooth(siteProgress, .26, .46);
+        const plot = scale(.028, .109, smooth(siteProgress, 0, .20));
+        trace.style.opacity = '0';
+        officePlate.style.setProperty('--sheet-opacity', planInk * smooth(siteProgress, .08, .22));
+        let tip = null;
+        for (const {key, from, to, ink, pencil} of byPhase) {
+          const locator = key === 'locator';
+          const fraction = locator ? smooth(siteProgress, .20, .27) : smooth(plot, from, to);
+          const visible = locator ? .95 * (1 - smooth(siteProgress, .59, .72))
+            : ink * planInk * smooth(siteProgress, .11, .21);
+          if (pencil.apply(fraction, visible)) tip = pencil.tip;
+        }
+        return tip;
+      }
       const fade = 1 - smooth(progress, .135, .273);
       trace.style.opacity = ((.10 + .12 * smooth(progress, .13, .32)) * context).toFixed(3);
       officePlate.style.setProperty('--sheet-opacity', fade * context);

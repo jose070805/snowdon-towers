@@ -1,4 +1,5 @@
 import { cafeDuration, makeCafeSequence } from './cafe-sequence.js';
+import { makeC101Overlay, makeC101Sweep } from './c101-sequence.js';
 import { makeMiniatureSite } from './miniature-site.js';
 import { bindTickProximity } from './tick-proximity.js';
 import { floorFrame, storyEnd } from './floor-sequence.js';
@@ -39,6 +40,8 @@ for (const chapter of chapters.slice(0, 5)) {
 }
 
 chapters[0].start = -cafeDuration;
+const c101Start = -cafeDuration * .40;
+const c101End = chapters[4].start;
 
 // Holds are measured in scroll distance on the original, one-unit shot sequence.
 const holds = [
@@ -196,7 +199,7 @@ function motionFor(group, progress, explosion) {
   return result;
 }
 
-function pose(camera, progress, width, height, site, street, offset, plan) {
+function pose(camera, progress, width, height, site, street, offset, plan, siteProgress) {
   const mobile = width < 730;
   const push = smooth(progress, .116, .282);
   const tilt = smooth(progress, .284, .477);
@@ -228,6 +231,18 @@ function pose(camera, progress, width, height, site, street, offset, plan) {
   // Give lookAt an explicit drawing-up direction at the orthographic pole.
   camera.up.set(0, 1, 0);
   if (top) camera.up.set(-Math.cos(phi) * Math.sin(bearing), Math.sin(phi), -Math.cos(phi) * Math.cos(bearing));
+  const revealStage = siteProgress === null ? 0 : smooth(siteProgress, .20, .45);
+  const focusStage = siteProgress === null ? 0 : smooth(siteProgress, .45, .58);
+  const heroStage = siteProgress === null ? 1 : smooth(siteProgress, .58, .76);
+  if (siteProgress !== null) {
+    const siteBearing = mix(site.bearing, .785, revealStage);
+    phi = mix(mix(.018, 1.008, revealStage), phi, heroStage);
+    bearing = mix(siteBearing, bearing, heroStage);
+    const siteFocus = new THREE.Vector3(site.x, 0, site.z)
+      .lerp(new THREE.Vector3(13, 1, 35), revealStage)
+      .lerp(new THREE.Vector3(8, 6, 24), focusStage);
+    focus.lerp(siteFocus, 1 - heroStage);
+  }
   const distance = mix(480, 154, approach);
   camera.position.set(
     focus.x + Math.sin(phi) * Math.sin(bearing) * distance,
@@ -241,12 +256,22 @@ function pose(camera, progress, width, height, site, street, offset, plan) {
   const heightSpan = mix(mix(site.height * paperZoom, mix(145, 171, tilt), push) + explosion * 63 + split * 88, mobile ? 105 : 139, approach);
   let spanWidth = Math.max(modelSpan * (mobile ? .98 : 1), heightSpan * ratio);
   spanWidth = mix(spanWidth, Math.max(746, 461 * ratio), siteOverview);
+  if (siteProgress !== null) {
+    const planWidth = Math.max(site.width * .72 * (mobile ? .84 * .98 : 1), site.height * .72 * ratio);
+    const siteWidth = mix(planWidth, Math.max(746, 461 * ratio), revealStage) * (1 - .12 * focusStage);
+    spanWidth = mix(siteWidth, spanWidth, heroStage);
+  }
   if (top) spanWidth = mix(spanWidth, Math.max(plan.width * (mobile ? 1.22 : 1.42),
     plan.depth * ratio * (mobile ? 1.70 : 1.38)), top);
   const spanHeight = spanWidth / ratio;
   const translateX = mobile ? mix(mix(.027, .045, push), .025, approach) : mix(.089, .073, push) - explosion * .012;
-  const translateY = mix(mobile ? -.016 : mix(.025, -.065, push) + tilt * .076 + explosion * .005, mobile ? .06 : 0, top);
-  const centeredX = mix(translateX * paperZoom * (1 - siteOverview * .86) - split * (mobile ? .04 : .08) - .075 * datumMargin, mobile ? .015 : -.025, top);
+  let translateY = mix(mobile ? -.016 : mix(.025, -.065, push) + tilt * .076 + explosion * .005, mobile ? .06 : 0, top);
+  let centeredX = mix(translateX * paperZoom * (1 - siteOverview * .86) - split * (mobile ? .04 : .08) - .075 * datumMargin, mobile ? .015 : -.025, top);
+  if (siteProgress !== null) {
+    translateY = mix(mobile ? -.016 : .025, translateY, heroStage);
+    const planShift = (mobile ? .027 : .089) * .72;
+    centeredX = mix(mix(planShift, mobile ? .004 : .01, revealStage), centeredX, heroStage);
+  }
   camera.left = (-.5 - centeredX) * spanWidth;
   camera.right = (.5 - centeredX) * spanWidth;
   camera.top = (.5 - translateY) * spanHeight;
@@ -281,7 +306,7 @@ function updateEditorial(progress, street, scroll, page) {
   const title = 1 - smooth(progress, -cafeDuration * .79, -cafeDuration * .42);
   if (era === 0) {
     const view = progress < -cafeDuration * .62 ? 'NIGHT STREET'
-      : progress < -cafeDuration * .40 ? 'CAFÉ TERRACE' : chapters[era].view;
+      : progress < c101Start ? 'CAFÉ TERRACE' : chapters[era].view;
     if (queries['view-type'].textContent !== view) queries['view-type'].textContent = view;
   }
   masthead.style.opacity = title;
@@ -319,6 +344,8 @@ async function initialize() {
   const lamp = { value: 0 };
   const { groups, solid, lineMaterials, shellMaterials } = createGroups(model, scene, lamp, drawing, shell, wire, studyMask);
   const annotations = makeAnnotations(groups);
+  const c101Overlay = makeC101Overlay(stageElement, site.data, miniature, footprints, groups);
+  const c101Sweep = makeC101Sweep(lineMaterials);
   const sectionDatums = makeSectionDatums(scene, stageElement);
   const ground = makeGround();
   ground.name = 'ground';
@@ -385,7 +412,9 @@ async function initialize() {
     }
     const intro = clamp((storyPosition + cafeDuration) / cafeDuration, 0, 1);
     const p = clamp(storyPosition / earlySequenceScale, 0, .913);
-    const growth = Math.max(p, .285 + .197 * smooth(storyPosition, -.038, .058));
+    const siteProgress = story >= c101Start && story < c101End
+      ? clamp((storyPosition - c101Start) / (c101End - c101Start), 0, 1) : null;
+    const growth = siteProgress === null ? p : mix(.285, .472, clamp((siteProgress - .58) / .12, 0, 1));
     const street = streetSequence(storyPosition);
     if (storyPosition >= .74 && !studyRequested) requestStudy();
     const page = floorFrame(storyPosition);
@@ -394,10 +423,16 @@ async function initialize() {
     stageElement.style.setProperty('--site-context', context);
     studyMask.value = street.study;
     const { explosion } = street;
-    const { tilt, spanWidth, push } = pose(camera, p, width, height, site.focus, street, dragOrbit(storyPosition, motionPreference.matches), plan);
+    const viewProgress = siteProgress === null ? p : c101End / earlySequenceScale;
+    const { spanWidth } = pose(camera, viewProgress, width, height, site.focus, street,
+      dragOrbit(storyPosition, motionPreference.matches), plan, siteProgress);
+    const tilt = smooth(p, .284, .477);
+    const push = smooth(p, .116, .282);
     cafe.apply(intro, camera, width, height);
-    miniature(storyPosition, context);
-    const entity = Math.max(.74 * smooth(p, .015, .145), smooth(p, .482, .577));
+    miniature.apply(storyPosition, context, siteProgress);
+    c101Sweep(siteProgress, motionPreference.matches);
+    const entity = siteProgress === null ? Math.max(.74 * smooth(p, .015, .145), smooth(p, .482, .577))
+      : smooth(siteProgress, .662, .835);
     solid.value = entity;
     lamp.value = smooth(p, .776, .810);
     drawing.value = street.drawing;
@@ -430,10 +465,11 @@ async function initialize() {
     axisTips.material.opacity = context * smooth(p, .185, .261) * .42 * (1 - tilt * .85);
     const pageInk = 1 - smooth(p, .3, .476) * .72;
     const openingInk = smooth(intro, .90, 1) * (1 - smooth(storyPosition, .106, .151));
-    let current = site.apply(Math.max(p, .105), context * openingInk);
+    let current = site.apply(Math.max(p, .105), context * openingInk, siteProgress);
     for (const { pencil, start, end, ink } of plot) {
       const fraction = clamp((p - start) / (end - start), 0, 1);
-      if (pencil.apply(fraction, ink * pageInk * context * (1 - drawing.value))) current = pencil.tip;
+      const opacity = siteProgress === null ? ink * pageInk * context * (1 - drawing.value) : 0;
+      if (pencil.apply(fraction, opacity)) current = pencil.tip;
     }
     cursor.visible = Boolean(current) && p < .290 && intro > .76;
     if (cursor.visible) {
@@ -460,7 +496,9 @@ async function initialize() {
       queries['view-type'].textContent = 'A301 / PLATE DATA UNAVAILABLE';
     }
     annotations(camera, width, height, storyPosition, motionPreference.matches);
-    renderer.render(scene, intro < 1 ? cafe.camera : camera);
+    const renderCamera = intro < 1 ? cafe.camera : camera;
+    c101Overlay(siteProgress, chapters[previousChapter], renderCamera, width, height, motionPreference.matches);
+    renderer.render(scene, renderCamera);
   }
   function queueRender(force = false) {
     if (!pendingFrame && (force || Math.abs(previousPosition - position) > .000001)) {
