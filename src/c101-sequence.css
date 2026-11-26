@@ -1,18 +1,10 @@
-@font-face {
-  font-family: "Xiaolai SC";
-  src: url("../assets/fonts/c101-xiaolai-sc.woff") format("woff");
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-}
-
 .c101-overlay {
   position: absolute;
   inset: 0;
   z-index: 3;
   pointer-events: none;
 }
-.c101-overlay[hidden], .c101-note[hidden] { display: none; }
+.c101-overlay[hidden] { display: none; }
 .c101-title-block {
   position: absolute;
   right: var(--edge);
@@ -35,28 +27,8 @@
 .c101-title-block dd { margin: 0; color: var(--ivory); white-space: nowrap; }
 .c101-title-block div:last-child dd { color: #f3ce83; }
 
-.c101-note { position: absolute; inset: 0; }
-.c101-note span {
-  position: absolute;
-  top: 0;
-  left: 0;
-  padding: 4px 9px;
-  background: radial-gradient(ellipse closest-side, #101a32eb 50%, transparent 100%);
-  color: #ffebc0;
-  text-shadow: 0 1px 2px #0b1328, 0 0 5px #0b1328;
-  white-space: nowrap;
-  font: 400 18px/1.25 "Xiaolai SC", sans-serif;
-}
-.c101-note span:lang(en) { font-family: "Architects Daughter", cursive; }
-.c101-leader, .c101-dot { position: absolute; top: 0; left: 0; background: #e6c481; }
-.c101-leader { height: 1px; transform-origin: left center; opacity: .82; }
-.c101-dot { width: 4px; height: 4px; border-radius: 50%; }
-.c101-note--tower .c101-dot { width: 6px; height: 6px; box-shadow: 0 0 0 2px #17253a; }
-.c101-note--tower span { color: #ffdf9a; }
-
 @media (max-width: 730px) {
   .c101-title-block { bottom: 69px; width: min(217px, 70vw); }
-  .c101-note span { font-size: 15px; }
 }
 @media (max-height: 420px) {
   .c101-title-block { bottom: 75px; }

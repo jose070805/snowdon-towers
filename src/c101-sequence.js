@@ -1,13 +1,14 @@
 import * as THREE from 'three';
+import {makeFieldNote, placeFieldNotes} from './field-notes.js';
 import './c101-sequence.css';
 
 const {clamp, lerp, smoothstep: smooth} = THREE.MathUtils;
 const noteWindows = [
-  {key: 'road', label: '道路', from: 0, to: .40, lane: 'lower-left'},
-  {key: 'contour', label: '等高线', from: .145, to: .35, lane: 'upper-right'},
-  {key: 'massing', label: '周边体量', from: .32, to: 1, lane: 'upper-left'},
-  {key: 'parking', label: '停车', from: .37, to: 1, lane: 'lower-left'},
-  {key: 'landscape', label: '景观', from: .55, to: 1, lane: 'bottom'},
+  {key: 'road', label: 'road', from: 0, to: .40, side: -1, vertical: 1},
+  {key: 'contour', label: 'contours', from: .145, to: .35, side: 1, vertical: -1},
+  {key: 'massing', label: 'perimeter blocks', from: .32, to: 1, side: -1, vertical: -1},
+  {key: 'parking', label: 'parking', from: .37, to: 1, side: -1, vertical: 1},
+  {key: 'landscape', label: 'landscape', from: .55, to: 1, side: 1, vertical: 1},
 ];
 
 function noteOpacity(progress, from, to, reduced) {
@@ -85,26 +86,9 @@ export function makeC101Overlay(stage, site, miniature, footprints, groups) {
     titleBlock.append(cell);
     return value;
   });
-  function makeNote(text) {
-    const node = document.createElement('div');
-    node.className = 'c101-note';
-    node.hidden = true;
-    const line = document.createElement('i');
-    const dot = document.createElement('i');
-    line.className = 'c101-leader';
-    dot.className = 'c101-dot';
-    line.setAttribute('aria-hidden', 'true');
-    dot.setAttribute('aria-hidden', 'true');
-    const label = document.createElement('span');
-    label.textContent = text;
-    label.lang = 'zh-CN';
-    node.append(line, dot, label);
-    layer.append(node);
-    return {node, label, line, dot};
-  }
-  const main = makeNote('落点');
-  main.node.classList.add('c101-note--tower');
-  const notes = noteWindows.map(entry => ({...entry, ...makeNote(entry.label)}));
+  const main = makeFieldNote(layer, 'drop point', 'tower');
+  main.node.classList.add('field-note--subject');
+  const notes = noteWindows.map(entry => ({...entry, note: makeFieldNote(layer, entry.label)}));
   layer.append(titleBlock);
   stage.append(layer);
 
@@ -118,7 +102,12 @@ export function makeC101Overlay(stage, site, miniature, footprints, groups) {
   const contour = nearestEdgePoint(site.layers.contours, 23, -118);
   const road = nearestEdgePoint(site.layers.roads, 32, 56);
   const drawingAnchors = {contour, road};
-  const transport = stage.querySelector('.transport');
+  const protectedElements = [titleBlock, ...stage.querySelectorAll('.viewstamp, .scale, .transport')];
+  const towerBounds = new THREE.Box3();
+  for (const {node} of groups) towerBounds.expandByObject(node);
+  const corners = [towerBounds.min.x, towerBounds.max.x].flatMap(x =>
+    [towerBounds.min.y, towerBounds.max.y].flatMap(y =>
+      [towerBounds.min.z, towerBounds.max.z].map(z => new THREE.Vector3(x, y, z))));
   const projected = new THREE.Vector3();
   return (progress, chapter, camera, width, height, reduced) => {
     layer.hidden = progress === null;
@@ -129,64 +118,28 @@ export function makeC101Overlay(stage, site, miniature, footprints, groups) {
     for (const [index, value] of values.entries()) {
       if (value.textContent !== words[index]) value.textContent = words[index];
     }
-    const compact = width < 730;
-    const taken = [];
-    const labelBlock = titleBlock.getBoundingClientRect();
-    const topLimit = compact ? 74 : 115;
-    const transportTop = transport.getBoundingClientRect().top;
-    const inset = lerp(width * .17, Math.max(30, width * .04), smooth(progress, .58, .77));
-    function place(note, world, ink, lane) {
-      note.node.hidden = false;
+    const active = [];
+    function project(note, world, ink, side, vertical, subject = false) {
       projected.copy(world).project(camera);
       const x = (.5 + .5 * projected.x) * width;
       const y = (.5 - .5 * projected.y) * height;
-      const labelWidth = note.label.offsetWidth;
-      const labelHeight = note.label.offsetHeight;
-      const tower = lane === 'tower';
-      const right = tower || lane.endsWith('right');
-      const upper = lane.startsWith('upper');
-      const lowerCenter = lane === 'bottom';
-      const gutter = compact ? width * .14 : inset;
-      const left = lowerCenter
-        ? clamp(compact ? width * .51 - labelWidth / 2 : x + 18, 48, width - gutter - labelWidth)
-        : right ? width - gutter - labelWidth : Math.max(compact ? 47 : 96, gutter);
-      const mobileRow = tower ? .71 : lerp(.71, .79, smooth(progress, .55, .70));
-      const belowModel = compact ? height * mobileRow : lowerCenter ? Math.max(y + 42, height * .82) : y + 42;
-      const aboveModel = compact ? height * .31 : Math.min(y - 52, height * .16);
-      const preferredTop = tower ? lerp(belowModel, aboveModel, smooth(progress, .58, .70))
-        : upper ? aboveModel : belowModel;
-      const overTitle = left < labelBlock.right + 8 && left + labelWidth + 8 > labelBlock.left;
-      const bottomLimit = overTitle ? Math.min(transportTop, labelBlock.top) : transportTop;
-      const limit = Math.max(topLimit, bottomLimit - labelHeight - 14);
-      const desiredTop = clamp(preferredTop, topLimit, limit);
-      const step = labelHeight + 9;
-      const boxAt = top => ({left, top, right: left + labelWidth, bottom: top + labelHeight});
-      const candidates = [desiredTop, desiredTop - step, desiredTop + step,
-        desiredTop - 2 * step, desiredTop + 2 * step, topLimit, limit];
-      const box = candidates.filter(top => top >= topLimit && top <= limit).map(boxAt).find(rect =>
-        !taken.some(other => rect.left < other.right + 8 && rect.right + 8 > other.left &&
-          rect.top < other.bottom + 8 && rect.bottom + 8 > other.top)) ?? boxAt(desiredTop);
-      taken.push(box);
-      const dx = clamp(x, box.left, box.right) - x;
-      const dy = clamp(y, box.top, box.bottom) - y;
-      note.node.style.opacity = ink;
-      note.label.style.transform = `translate(${box.left}px,${box.top}px)`;
-      note.dot.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%)`;
-      note.line.style.width = Math.hypot(dx, dy) + 'px';
-      note.line.style.transform = `translate(${x}px,${y}px) rotate(${Math.atan2(dy, dx)}rad)`;
+      if (x < 5 || x > width - 5 || y < 5 || y > height - 5) note.node.hidden = true;
+      else active.push({note, anchor: {x, y}, ink, side, vertical, subject});
     }
     const finalAnchor = towerGroup.node.localToWorld(towerVertex.clone());
     const point = footprint.clone().lerp(finalAnchor, smooth(progress, .592, .70));
-    const label = progress < .45 ? '落点' : progress < .58 ? '基座' : '主楼';
+    const label = progress < .45 ? 'drop point' : progress < .58 ? 'building base' : 'main building';
     if (main.label.textContent !== label) main.label.textContent = label;
-    place(main, point, 1, 'tower');
-    for (const note of notes) {
-      const ink = noteOpacity(progress, note.from, note.to, reduced);
-      if (ink < .001) {
-        note.node.hidden = true;
-        continue;
-      }
-      place(note, drawingAnchors[note.key] ?? miniature.anchor(note.key), ink, note.lane);
+    project(main, point, 1, 1, progress >= .58 ? -1 : 1, true);
+    for (const {note, key, from, to, side, vertical} of notes) {
+      const ink = noteOpacity(progress, from, to, reduced);
+      if (ink < .001) note.node.hidden = true;
+      else project(note, drawingAnchors[key] ?? miniature.anchor(key), ink, side, vertical);
     }
+    const drawing = progress >= .65 ? corners.map(corner => {
+      projected.copy(corner).project(camera);
+      return {x: (projected.x + 1) * width / 2, y: (1 - projected.y) * height / 2};
+    }) : undefined;
+    placeFieldNotes(active, width, height, protectedElements, drawing);
   };
 }

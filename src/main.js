@@ -313,7 +313,7 @@ function updateEditorial(progress, street, scroll, page) {
   masthead.style.visibility = title === 0 ? 'hidden' : 'visible';
   if (era === 7 && street.planReveal > .5) queries['view-type'].textContent = page.active.heading;
   else if (era === 7 && street.explosion >= .55) queries['view-type'].textContent = 'EXPLODED / DISPLAY GROUPS';
-  else if (era === 7 && street.study > .5) queries['view-type'].textContent = 'A301 / LEVEL ASSEMBLIES';
+  else if (era === 7 && street.study > .5) queries['view-type'].textContent = 'A301 / LEVEL ASSEMBLY';
   else if (era === 7) queries['view-type'].textContent = chapters[era].view;
 }
 
@@ -556,6 +556,6 @@ const startup = terraceView === 'street' || terraceView === 'table'
   : initialize();
 startup.catch((error) => {
   console.error(error);
-  queries.loading.textContent = '三维场景加载失败。请通过本地预览地址打开，并检查浏览器 WebGL 支持。';
+  queries.loading.textContent = 'GEOMETRY FAILED TO LOAD. OPEN THE LOCAL PREVIEW AND CHECK WEBGL SUPPORT.';
   stageElement.dataset.ready = 'error';
 });
