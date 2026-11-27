@@ -11,6 +11,7 @@
   --gold: #d9a34c;
   --ivory: #e9deca;
   --terra: #a85e4c;
+  --grass: #6b7f5e;    /* desaturated ~30% toward blue-grey from original green */
   --line: #e9deca29;
   --mono: "IBM Plex Mono", "Cascadia Mono", Consolas, monospace;
   --edge: clamp(20px, 4vw, 66px);

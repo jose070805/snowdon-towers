@@ -4,8 +4,8 @@ const finishes = {
   ivory: ['#e9deca', 0],
   concrete: ['#b7adb0', 0],
   stone: ['#d6b692', 0],
-  brick: ['#aa6a58', 1],
-  'brick-light': ['#bd8166', 1],
+  brick: ['#6b3f33', 1],        /* darkened start; fades to full colour on lamp scroll */
+  'brick-light': ['#7a4f40', 1],
   glass: ['#355887', 2],
   amber: ['#b87939', 3],
   metal: ['#354356', 0],
@@ -13,14 +13,14 @@ const finishes = {
   roof: ['#a6aeb3', 0],
   partition: ['#cbbda8', 0],
   solar: ['#243a64', 4],
-  lawn: ['#8d9e79', 6],
+  lawn: ['#7b8f85', 6],        /* desaturated ~30% toward blue-grey */
   deck: ['#c8a67d', 5],
   paving: ['#b3a795', 0],
   soil: ['#88766a', 0],
   planter: ['#746e63', 0],
   pergola: ['#ddc29c', 5],
   umbrella: ['#d5c4af', 0],
-  foliage: ['#8d9e79', 6],
+  foliage: ['#7b8f85', 6],     /* matches lawn desaturation */
   stem: ['#a99570', 0],
 };
 
@@ -84,6 +84,8 @@ const fragment = /* glsl */`
       float mortar = max(ruled(course, .038), ruled(run, .026));
       pigments *= .90 + .17 * hash(vec2(floor(course), floor(run)));
       pigments = mix(pigments, vec3(.34, .23, .17), mortar * .36);
+      /* fade brick from dark start toward full warm colour as lamp rises */
+      pigments = mix(pigments, pigments * vec3(1.58, 1.42, 1.32), lamp * .72);
     }
     if (kind == 5.) pigments *= .95 - .19 * ruled(sitePosition.z * .72 + sitePosition.x * .05, .029);
     if (kind == 6.) pigments *= .91 + .11 * hash(floor(sitePosition.xz * 3.));
