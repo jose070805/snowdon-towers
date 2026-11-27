@@ -8,7 +8,7 @@ const noteWindows = [
   {key: 'contour', label: 'contours', from: .145, to: .35, side: 1, vertical: -1},
   {key: 'massing', label: 'perimeter blocks', from: .32, to: 1, side: -1, vertical: -1},
   {key: 'parking', label: 'parking', from: .37, to: 1, side: -1, vertical: 1},
-  {key: 'landscape', label: 'landscape', from: .55, to: 1, side: 1, vertical: 1},
+  {key: 'landscape', label: 'landscape', from: .55, to: 1, side: -1, vertical: 1},
 ];
 
 function noteOpacity(progress, from, to, reduced) {
@@ -100,7 +100,7 @@ export function makeC101Overlay(stage, site, miniature, footprints, groups) {
   }
   const footprint = nearestEdgePoint(outline, towerVertex.x, towerVertex.z);
   const contour = nearestEdgePoint(site.layers.contours, 23, -118);
-  const road = nearestEdgePoint(site.layers.roads, 32, 56);
+  const road = nearestEdgePoint(site.layers.roads, -60, 48);
   const drawingAnchors = {contour, road};
   const protectedElements = [titleBlock, ...stage.querySelectorAll('.viewstamp, .scale, .transport')];
   const towerBounds = new THREE.Box3();
